@@ -1,0 +1,12 @@
+/* Sky Hangar (hiller). Prefix: hl- */
+.hl-play { display: flex; flex-direction: column; gap: 6px; }
+.hl-hud { justify-content: space-between; font-size: 16px; }
+.hl-field { position: relative; touch-action: none; outline: none; border-radius: 16px; cursor: grab; }
+.hl-field:active { cursor: grabbing; }
+.hl-field:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
+.hl-field .mg-stage { pointer-events: none; }
+.hl-text { font-family: var(--font-display); paint-order: stroke fill; stroke: var(--ink); stroke-width: 3px; stroke-linejoin: round; fill: var(--paper); }
+.hl-lift { letter-spacing: .08em; color: var(--teal-dark); }
+.hl-lift .off { opacity: .25; }
+.hl-keys { margin: 0; font-size: 12px; text-align: center; color: #4a5560; }
+@media (max-height: 520px) { .hl-keys { display: none; } .hl-hud { font-size: 14px; } }

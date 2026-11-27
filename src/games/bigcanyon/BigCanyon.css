@@ -1,0 +1,9 @@
+/* Canyon of Echoes (bigcanyon). Prefix: bc- */
+.bc-play { display: flex; flex-direction: column; gap: 6px; }
+.bc-field { position: relative; touch-action: none; outline: none; border-radius: 16px; cursor: pointer; }
+.bc-field:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
+.bc-field .mg-stage { pointer-events: none; }
+.bc-time { min-width: 44px; text-align: right; }
+.bc-hint { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; pointer-events: none; font-family: var(--font-display); font-size: 13px; color: var(--ink); opacity: .8; }
+.bc-text { font-family: var(--font-display); paint-order: stroke fill; stroke: var(--ink); stroke-width: 3px; stroke-linejoin: round; fill: var(--paper); }
+@media (max-height: 520px) { .bc-hint { display: none; } }

@@ -1,0 +1,4 @@
+/* Fort Burton field goal. Prefix: fg- */
+.fg-wind { font-family: var(--font-display); }
+.fg-hint { font-family: var(--font-body); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .fg-dots circle { transition: none; } }

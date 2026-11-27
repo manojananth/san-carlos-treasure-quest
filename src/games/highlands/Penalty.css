@@ -1,0 +1,6 @@
+/* Summit Outpost penalty shootout. Prefix: pk- */
+.pk-zone { fill: rgba(255, 255, 255, .08); stroke: #fff; stroke-opacity: .55; stroke-width: 1.5; stroke-dasharray: 5 4; }
+.pk-zone.kb { fill: rgba(242, 182, 50, .45); stroke: var(--ink); stroke-opacity: 1; stroke-dasharray: none; stroke-width: 2.5; }
+.pk-hint { font-family: var(--font-body); font-weight: 600; }
+.pk-bar { transition: none; }
+.pk-bar.low > i { background: var(--red); }
