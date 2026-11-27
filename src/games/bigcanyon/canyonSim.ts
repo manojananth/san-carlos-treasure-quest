@@ -4,14 +4,14 @@
  */
 export const RUN_SPEED = 110; // units / s on the flat
 export const BOOST = 1.12; // while the player holds
-export const STUMBLE_TIME = 0.7; // s
-export const STUMBLE_SPEED = 0.3; // speed factor while stumbling
+export const STUMBLE_TIME = 1.0; // s
+export const STUMBLE_SPEED = 0.25; // speed factor while stumbling
 export const JUMP_V = 380;
 export const GRAVITY = 1200;
 export const JUMP_BUFFER = 0.14; // s a too-early tap is remembered
 export const COURSE_LEN = 2700;
 export const RUNNER_HW = 4;
-export const GEM_BONUS = 0.4; // s of extra time per echo-gem
+export const GEM_BONUS = 0.3; // s of extra time per echo-gem
 export const BASE_SECONDS = 35;
 export const WIN_COAST = 0.7; // s the explorer coasts to the cairn before the result appears
 /** score = % of the time limit left - 5 per stumble */

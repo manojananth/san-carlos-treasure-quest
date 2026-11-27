@@ -23,23 +23,22 @@ const MAX_CAM = WORLD_W - W - 40;
 const GUIDE: Record<Difficulty, number> = { rookie: 1.3, pro: 0.55, legend: 0 };
 
 const GOALS: Record<Difficulty, string> = {
-  rookie: 'Drag back to aim your paper plane (the dots show the way), let go, then tap for updrafts. Fly through the rings and land far away!',
-  pro: 'Drag back to aim, let go to throw. Tap for a limited updraft in flight. Fly through the rings and land as far as you can!',
-  legend: 'No guide dots and just one updraft! Drag back, let go, and glide through the rings for the longest flight.',
+  rookie: 'Drag back to aim, let go to throw, tap for updrafts. Fly through the rings and land far away!',
+  pro: 'Drag back and let go to throw. Tap for updrafts. Fly through the rings and land far!',
+  legend: 'No guide dots and one updraft! Drag back, throw, and glide through the rings.',
 };
 
 function HowToDiagram() {
   return (
-    <svg viewBox="0 0 220 96" role="presentation">
-      <rect x={1.5} y={1.5} width={217} height={93} rx={12} fill="#d3e6e2" stroke={INK} strokeWidth={3} />
-      <rect x={1.5} y={72} width={217} height={22} rx={0} fill="#e0d5b8" stroke={INK} strokeWidth={3} />
-      <path d="M44 74 V50" stroke={INK} strokeWidth={8} strokeLinecap="round" /><path d="M44 74 V50" stroke="#a8703f" strokeWidth={4} strokeLinecap="round" />
-      <g transform="translate(36 40) rotate(28) scale(.8)"><PaperPlane /></g>
-      <path d="M22 62 L38 46" stroke="#c8372d" strokeWidth={3.5} strokeLinecap="round" strokeDasharray="1 7" />
-      <path d="M52 40 Q96 6 128 44 T196 70" fill="none" stroke={INK} strokeWidth={3} strokeDasharray="2 8" strokeLinecap="round" />
-      <ellipse cx={124} cy={42} rx={6} ry={19} fill="none" stroke={INK} strokeWidth={8} /><ellipse cx={124} cy={42} rx={6} ry={19} fill="none" stroke="#f2b632" strokeWidth={4.5} />
-      <g transform="translate(196 66) rotate(8) scale(.8)"><PaperPlane /></g>
-      <text x={110} y={89} textAnchor="middle" fontFamily="'Lilita One', sans-serif" fontSize={11} fill={INK}>0m   50m   100m   150m</text>
+    <svg viewBox="0 0 220 68" role="presentation">
+      <rect x={1.5} y={1.5} width={217} height={65} rx={12} fill="#d3e6e2" stroke={INK} strokeWidth={3} />
+      <rect x={1.5} y={52} width={217} height={14} fill="#e0d5b8" stroke={INK} strokeWidth={3} />
+      <path d="M38 52 V32" stroke={INK} strokeWidth={8} strokeLinecap="round" /><path d="M38 52 V32" stroke="#a8703f" strokeWidth={4} strokeLinecap="round" />
+      <g transform="translate(30 26) rotate(28) scale(.7)"><PaperPlane /></g>
+      <path d="M14 42 L32 30" stroke="#c8372d" strokeWidth={3.5} strokeLinecap="round" strokeDasharray="1 7" />
+      <path d="M48 24 Q92 -2 118 26 T190 46" fill="none" stroke={INK} strokeWidth={3} strokeDasharray="2 8" strokeLinecap="round" />
+      <ellipse cx={112} cy={22} rx={5} ry={15} fill="none" stroke={INK} strokeWidth={8} /><ellipse cx={112} cy={22} rx={5} ry={15} fill="none" stroke="#f2b632" strokeWidth={4.5} />
+      <g transform="translate(192 46) rotate(8) scale(.7)"><PaperPlane /></g>
     </svg>
   );
 }

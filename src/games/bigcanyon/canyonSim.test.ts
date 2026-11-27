@@ -41,10 +41,17 @@ describe('canyon pacing', () => {
   it('taps a little early or late still clear every obstacle', () => {
     for (const lead of [28, 34, 46, 52]) expect(run({ jump: true, lead }).stumbles, `lead ${lead}`).toBe(0);
   });
-  it('never jumping stumbles on every obstacle but still finishes', () => {
+  it('never jumping stumbles on every obstacle but still finishes on Pro', () => {
     const s = run({ jump: false });
     expect(s.stumbles).toBe(COURSE.obstacles.length);
     expect(s.won).toBe(true);
+    expect(remainingSeconds(s, BASE_SECONDS)).toBeGreaterThan(0);
+  });
+  it('never jumping runs out of time on Legend ("So close!")', () => {
+    const limit = BASE_SECONDS * 0.75;
+    const s = createSim();
+    for (let i = 0; i < 60 * 60 && !s.won && remainingSeconds(s, limit) > 0; i++) stepSim(s, DT, false);
+    expect(s.won).toBe(false);
   });
   it('a clean run with gems earns 3 stars on Pro; boost helps Legend', () => {
     const s = run({ jump: true });

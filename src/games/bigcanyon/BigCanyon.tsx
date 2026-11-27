@@ -23,25 +23,25 @@ const RIPPLES = 4;
 const RUNNER_INNER = EXPLORER_SVG.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
 
 const GOALS: Record<Difficulty, string> = {
-  rookie: 'Race up the canyon to the summit! Tap or press Space to jump roots and rocks. Grab echo-gems for extra time.',
-  pro: 'Beat the clock to the summit! Tap or press Space to jump roots and rocks. Echo-gems add time; stumbles cost you.',
-  legend: 'The clock is tight! Jump every root and rock, grab echo-gems, and hold to run a little faster.',
+  rookie: 'Run up the canyon! Tap or press Space to jump roots and rocks. Grab echo-gems for extra time.',
+  pro: 'Beat the clock to the summit! Tap or press Space to jump roots and rocks. Gems add time.',
+  legend: 'Tight clock! Jump every root and rock, grab gems, and hold to run a bit faster.',
 };
 
 function HowToDiagram() {
   return (
-    <svg viewBox="0 0 220 96" role="presentation">
-      <rect x={1.5} y={1.5} width={217} height={93} rx={12} fill="#e8f6f4" stroke={INK} strokeWidth={3} />
-      <path d="M2 80 L218 40 L218 94 L2 94 Z" fill="#e2b66f" stroke={INK} strokeWidth={2.5} strokeLinejoin="round" />
-      <path d="M2 80 L218 40" stroke={INK} strokeWidth={3} />
-      <g transform="translate(150 55) rotate(-10)" stroke={INK} strokeWidth={2.2} strokeLinejoin="round">
+    <svg viewBox="0 0 220 68" role="presentation">
+      <rect x={1.5} y={1.5} width={217} height={65} rx={12} fill="#e8f6f4" stroke={INK} strokeWidth={3} />
+      <path d="M2 54 L218 26 L218 66 L2 66 Z" fill="#e2b66f" stroke={INK} strokeWidth={2.5} strokeLinejoin="round" />
+      <path d="M2 54 L218 26" stroke={INK} strokeWidth={3} />
+      <g transform="translate(146 35) rotate(-8)" stroke={INK} strokeWidth={2.2} strokeLinejoin="round">
         <path d="M-12 1 L-10 -8 L-3 -14 L5 -15 L10 -7 L12 1 Z" fill="#a9b0b8" />
       </g>
-      <g transform="translate(60 66) rotate(-10) scale(.5) translate(-32 -77)" dangerouslySetInnerHTML={{ __html: RUNNER_INNER }} />
-      <path d="M72 30 Q100 6 128 30" fill="none" stroke="#c8372d" strokeWidth={4} strokeLinecap="round" strokeDasharray="1 9" />
-      <path d="M128 30 L120 28 M128 30 L127 38" fill="none" stroke="#c8372d" strokeWidth={4} strokeLinecap="round" />
-      <g transform="translate(110 36)" stroke={INK} strokeWidth={1.8} strokeLinejoin="round"><path d="M0 -9 L7 0 L0 9 L-7 0 Z" fill="#2ba8a4" /></g>
-      <text x={186} y={20} textAnchor="middle" fontFamily="'Lilita One', sans-serif" fontSize={13} fill={INK}>SUMMIT</text>
+      <g transform="translate(52 46) rotate(-8) scale(.46) translate(-32 -77)" dangerouslySetInnerHTML={{ __html: RUNNER_INNER }} />
+      <path d="M66 20 Q104 -2 138 20" fill="none" stroke="#c8372d" strokeWidth={4} strokeLinecap="round" strokeDasharray="1 9" />
+      <path d="M138 20 L130 17 M138 20 L137 28" fill="none" stroke="#c8372d" strokeWidth={4} strokeLinecap="round" />
+      <g transform="translate(100 12)" stroke={INK} strokeWidth={1.8} strokeLinejoin="round"><path d="M0 -8 L6 0 L0 8 L-6 0 Z" fill="#2ba8a4" /></g>
+      <text x={188} y={15} textAnchor="middle" fontFamily="'Lilita One', sans-serif" fontSize={12} fill={INK}>SUMMIT</text>
     </svg>
   );
 }
