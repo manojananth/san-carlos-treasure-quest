@@ -21,6 +21,11 @@ const MAX_CAM = WORLD_W - W - 40;
 /** how many seconds of the flight the aiming guide draws */
 const GUIDE: Record<Difficulty, number> = { rookie: 1.3, pro: 0.55, legend: 0 };
 
+const HINT_AIM = 'Drag back and let go!';
+const HINT_FLY = 'Tap for an updraft!';
+/** rough pill width for a 15px display label (the hint pill is sized to its text) */
+const pillWidth = (s: string) => Math.round(s.length * 7.5 + 24);
+
 const GOALS: Record<Difficulty, string> = {
   rookie: 'Drag back to aim, let go to throw, tap for updrafts. Fly through the rings and land far away!',
   pro: 'Drag back and let go to throw. Tap for updrafts. Fly through the rings and land far!',
@@ -84,7 +89,11 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
   const guideRef = useRef<SVGPolylineElement>(null);
   const trailRef = useRef<SVGPolylineElement>(null);
   const liveRef = useRef<SVGTextElement>(null);
-  const hintRef = useRef<SVGTextElement>(null);
+  const liveBgRef = useRef<SVGRectElement>(null);
+  const hintRef = useRef<SVGGElement>(null);
+  const hintBgRef = useRef<SVGRectElement>(null);
+  const hintTextRef = useRef<SVGTextElement>(null);
+  const hintKey = useRef('');
   const stallRef = useRef<SVGTextElement>(null);
   const puffEls = useRef<(SVGCircleElement | null)[]>([]);
 
@@ -140,15 +149,27 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
       el.setAttribute('opacity', (1 - p.age / 0.5).toFixed(2));
     });
     // live readout
+    // the readout pill only shows once there is something to read
     const live = liveRef.current;
     if (live) {
       const text = g && ph !== 'aim' ? `${distanceM(g)} m   rings ${ringCount(g)}/3` : '';
-      if (text !== liveKey.current) { liveKey.current = text; live.textContent = text; }
+      if (text !== liveKey.current) {
+        liveKey.current = text;
+        live.textContent = text;
+        if (liveBgRef.current) liveBgRef.current.style.display = text ? 'block' : 'none';
+      }
     }
     const hint = hintRef.current;
     if (hint) {
       hint.style.opacity = ph === 'aim' || (ph === 'fly' && nudgeLeft.current > 0 && (g?.t ?? 9) < 3) ? '1' : '0';
-      hint.textContent = ph === 'aim' ? 'Drag back and let go!' : 'Tap for an updraft!';
+      const label = ph === 'aim' ? HINT_AIM : HINT_FLY;
+      if (label !== hintKey.current) {
+        hintKey.current = label;
+        if (hintTextRef.current) hintTextRef.current.textContent = label;
+        const w = pillWidth(label);
+        hintBgRef.current?.setAttribute('x', String(200 - w / 2));
+        hintBgRef.current?.setAttribute('width', String(w));
+      }
     }
   }, [difficulty, reduced]);
 
@@ -352,9 +373,12 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
             <g ref={planeRef}><PaperPlane /></g>
             <text ref={stallRef} className="hl-text" fontSize={13} textAnchor="middle" style={{ display: 'none' }}>Stall!</text>
           </g>
-          <rect x={120} y={28} width={160} height={22} rx={11} fill="#fff7e3" stroke={INK} strokeWidth={2} />
+          <rect ref={liveBgRef} x={120} y={28} width={160} height={22} rx={11} fill="#fff7e3" stroke={INK} strokeWidth={2} style={{ display: 'none' }} />
           <text ref={liveRef} className="hl-text" x={200} y={44} fontSize={15} textAnchor="middle" />
-          <text ref={hintRef} className="hl-text" x={200} y={238} fontSize={15} textAnchor="middle" style={{ transition: 'opacity .3s' }}>Drag back and let go!</text>
+          <g ref={hintRef} style={{ transition: 'opacity .3s' }}>
+            <rect ref={hintBgRef} x={200 - pillWidth(HINT_AIM) / 2} y={186} width={pillWidth(HINT_AIM)} height={22} rx={11} fill="#fff7e3" stroke={INK} strokeWidth={2} />
+            <text ref={hintTextRef} className="hl-text" x={200} y={200} fontSize={15} textAnchor="middle">{HINT_AIM}</text>
+          </g>
           {banner && (
             <g>
               <rect x={70} y={84} width={260} height={44} rx={12} fill="#fff7e3" stroke={INK} strokeWidth={3} />

@@ -456,7 +456,7 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
         {aiming && showHint && !reticle && shot === 0 && (
           <g pointerEvents="none">
             <rect x={78} y={270} width={244} height={24} rx={12} fill={PAPER} stroke={INK} strokeWidth={2.5} />
-            <text className="pk-hint" x={200} y={286} textAnchor="middle" fontSize={12.5} fill={INK}>Drag from the ball to the goal, or tap a spot!</text>
+            <text className="pk-hint" x={200} y={286} textAnchor="middle" fontSize={12.5} fill={INK}>Drag or tap to shoot!</text>
           </g>
         )}
         {/* keyboard focus target */}

@@ -377,7 +377,7 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
         )}
         {kick === 0 && showAim && !dragging && !charging && (
           <g pointerEvents="none">
-            <rect x={96} y={266} width={208} height={24} rx={12} fill={PAPER} stroke={INK} strokeWidth={2.5} />
+            <rect x={64} y={266} width={272} height={24} rx={12} fill={PAPER} stroke={INK} strokeWidth={2.5} />
             <text className="fg-hint" x={200} y={282} textAnchor="middle" fontSize={12.5} fill={INK}>Drag back from the ball, then let go!</text>
           </g>
         )}
