@@ -1,7 +1,6 @@
 import type { ComponentType } from 'react';
 import type { StopId } from '../data/stops';
 import type { ChallengeProps } from './types';
-import { PlaceholderChallenge } from './PlaceholderChallenge';
 import { FieldGoal } from './burton/FieldGoal';
 import { PenaltyShootout } from './highlands/Penalty';
 import { CoupleTheCars } from './depot/CoupleTheCars';
