@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ChallengeProps } from '../types';
 import type { Difficulty } from '../../state/types';
-import { MiniGameShell, Stage, feedback, starsFor } from '../kit';
+import { MiniGameShell, Stage, feedback, starsFor, useLoop } from '../kit';
 import type { ShellApi } from '../kit';
 import { EXPLORER_SVG } from '../../components/explorerSvg';
 import {
@@ -10,7 +10,6 @@ import {
 import {
   Bridge, Clouds, GemArt, HillLayer, INK, ObstacleArt, Signs, SkyBackdrop, Terrain, Trees, Tufts,
 } from './canyonArt';
-import { useLoop } from './useLoop';
 import './BigCanyon.css';
 
 const W = 400;

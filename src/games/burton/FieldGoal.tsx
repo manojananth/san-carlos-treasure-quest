@@ -112,7 +112,8 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
   const [kick, setKick] = useState(0);
   const [mode, setMode] = useState<Mode>('aim');
   const [results, setResults] = useState<boolean[]>([]);
-  const [aim, setAimState] = useState({ yaw: 0, p: 0.6 });
+  // a default kick with no aiming is a weak one, so it falls short
+  const [aim, setAimState] = useState({ yaw: 0, p: 0.1 });
   const [dragging, setDragging] = useState<{ x: number; y: number } | null>(null);
   const [behind, setBehind] = useState(false);
   const [msg, setMsg] = useState<{ big: string; small: string; good: boolean } | null>(null);
@@ -211,7 +212,7 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
             kickRef.current = i + 1;
             setKick(i + 1);
             setMsg(null);
-            setAim({ yaw: 0, p: 0.6 });
+            setAim({ yaw: 0, p: 0.1 });
             behindRef.current = false;
             setBehind(false);
             placeBall(0, 0, 0, 0);
@@ -314,6 +315,9 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
     return out;
   }, [aim, d, difficulty]);
 
+  // the field scenery only depends on the distance, so keep it from rebuilding on every drag move
+  const field = useMemo(() => <Field d={d} />, [d]);
+
   const showAim = mode === 'aim';
   const ballEl = (
     <g ref={(el) => { ballRef.current = el; if (el) applyPose(); }} pointerEvents="none">
@@ -335,7 +339,7 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
         <span>{d} yd</span>
       </div>
       <Stage ref={svgRef} width={W} height={H} className="sp-stage" label="Field goal kick. Drag back from the ball to aim, then let go.">
-        <Field d={d} />
+        {field}
         <ellipse ref={shadowRef} r={1} rx={1} ry={1} fill={INK} opacity={0} pointerEvents="none" />
         {!behind && ballEl}
         {/* aim guide */}

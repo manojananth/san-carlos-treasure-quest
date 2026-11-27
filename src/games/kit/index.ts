@@ -8,3 +8,5 @@ export { starsFor } from './stars';
 export { useReducedMotion, prefersReducedMotion } from './useReducedMotion';
 export { Stage, clientToStage } from './Stage';
 export { feedback } from './feedback';
+export { useLoop } from './useLoop';
+export { shuffled } from './random';

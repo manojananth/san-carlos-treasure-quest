@@ -3,7 +3,7 @@ import gsap from 'gsap';
 import type { ChallengeProps } from '../types';
 import type { Difficulty } from '../../state/types';
 import {
-  MiniGameShell, Stage, clientToStage, feedback, starsFor, useCountdown, usePausableTimeline, usePointerDrag,
+  MiniGameShell, Stage, clientToStage, feedback, shuffled, starsFor, useCountdown, usePausableTimeline, usePointerDrag,
 } from '../kit';
 import type { ShellApi } from '../kit';
 import { CAR_H, CAR_NAMES, CAR_W, CarArt, GOLD, INK, LOCO_W, LocoArt, PAPER, RED, TEAL, TEAL_DARK } from './trainArt';
@@ -82,14 +82,10 @@ function yardHomes(n: number): Home[] {
   return out;
 }
 
-function shuffled<T>(items: T[]): T[] {
-  const a = items.slice();
-  do {
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-  } while (a.every((v, i) => v === items[i])); // never start already solved
+/** shuffle that never starts already solved */
+function shuffleUnsolved<T>(items: T[]): T[] {
+  let a: T[];
+  do a = shuffled(items); while (a.every((v, i) => v === items[i]));
   return a;
 }
 
@@ -181,7 +177,7 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
   // cars start shuffled in the yard
   const [cars] = useState<CarState[]>(() => {
     const homes = yardHomes(n);
-    return shuffled(order).map((kind, i) => ({ kind, order: order.indexOf(kind), home: homes[i], placed: false }));
+    return shuffleUnsolved(order).map((kind, i) => ({ kind, order: order.indexOf(kind), home: homes[i], placed: false }));
   });
   const byKind = useMemo(() => new Map(cars.map((c) => [c.kind, c])), [cars]);
 
@@ -323,7 +319,7 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
       setKb(null);
       setDragKind(kind);
       if (reduced) gsap.set(g, { scale: 1.08, rotation: 0 });
-      else gsap.to(g, { scale: 1.1, rotation: 0, duration: 0.12 });
+      else tween(g, { scale: 1.1, rotation: 0, duration: 0.12 });
       return true;
     },
     onMove: (i) => {

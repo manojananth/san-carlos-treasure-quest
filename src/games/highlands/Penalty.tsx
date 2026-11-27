@@ -197,9 +197,10 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
     const y = GOALIE_HOME.y + (d.ey - GOALIE_HOME.y) * p + (d.sx === 0 ? 4 * l * (1 - p) : 0);
     const rot = d.rot * p + Math.sign(d.sx) * 9 * l * (1 - p);
     const arm = lerp(lerp(30, 65, l), d.sx === 0 ? 150 : 160, p);
-    if (goalieRef.current) gsap.set(goalieRef.current, { x, y, rotation: rot, transformOrigin: '0 0' });
-    if (armL.current) gsap.set(armL.current, { rotation: arm, transformOrigin: '0 0' });
-    if (armR.current) gsap.set(armR.current, { rotation: -arm, transformOrigin: '0 0' });
+    // plain SVG transform attributes: the arm groups keep their base offsets (-13,-9) / (13,-9)
+    goalieRef.current?.setAttribute('transform', `translate(${x} ${y}) rotate(${rot})`);
+    armL.current?.setAttribute('transform', `translate(-13 -9) rotate(${arm})`);
+    armR.current?.setAttribute('transform', `translate(13 -9) rotate(${-arm})`);
   }, []);
 
   const placeBall = useCallback((x: number, y: number, s: number, rot: number) => {
@@ -264,7 +265,9 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
     killTweensOf(gs.current);
     const inGoal = tx > GX0 + 5 && tx < GX1 - 5 && ty > GY0 + 5;
     // maybe the goalie reads the shot instead of trusting his guess
-    if (inGoal && Math.random() < READ[difficulty]) {
+    // a shot into the middle third is easier to read than one into a corner (no effect on weak auto-shots)
+    const centre = tx >= GX0 + ZW && tx <= GX0 + 2 * ZW;
+    if (inGoal && Math.random() < (centre ? 0.5 + READ[difficulty] : READ[difficulty])) {
       const col = tx < GX0 + ZW ? -1 : tx > GX0 + 2 * ZW ? 1 : 0;
       decRef.current = col === 0 ? DIVES[4] : DIVES.find((d) => Math.sign(d.sx) === col && d.high === (ty < GY0 + ZH))!;
     }
@@ -291,7 +294,9 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
       onComplete: () => {
         if (tokenRef.current !== token) return;
         let kind: Kind;
-        if (tx <= GX0 + 3 || tx >= GX1 - 3) kind = 'wide';
+        // an idle shot-clock shot is never a goal
+        if (weak) kind = 'saved';
+        else if (tx <= GX0 + 3 || tx >= GX1 - 3) kind = 'wide';
         else if (ty <= GY0 + 3) kind = 'over';
         else {
           const gx = GOALIE_HOME.x + decRef.current.sx * dv.p;
@@ -413,6 +418,9 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
     armR: (el) => { armR.current = el; },
   }), []);
 
+  // static backdrop: built once so re-renders on every shot don't rebuild the scenery
+  const backdrop = useMemo(() => <><Scene /><GoalFrame front={false} /></>, []);
+
   const aiming = mode === 'aim';
   return (
     <div className="sp-play">
@@ -422,8 +430,7 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
         <div className="sp-bar pk-bar" ref={barRef} aria-hidden="true"><i ref={barFill} /></div>
       </div>
       <Stage ref={svgRef} width={W} height={H} className="sp-stage" label="Penalty shootout. Drag from the ball to a spot in the goal, or tap a spot.">
-        <Scene />
-        <GoalFrame front={false} />
+        {backdrop}
         <Goalie refs={goalie} />
         <GoalFrame front />
         {/* target zones */}

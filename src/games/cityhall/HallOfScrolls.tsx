@@ -3,7 +3,7 @@ import gsap from 'gsap';
 import type { ChallengeProps } from '../types';
 import type { Difficulty } from '../../state/types';
 import { FACTS } from '../../data/facts';
-import { MiniGameShell, feedback, starsFor, useCountdown, usePausableTimeline } from '../kit';
+import { MiniGameShell, feedback, shuffled, starsFor, useCountdown, usePausableTimeline } from '../kit';
 import type { ShellApi } from '../kit';
 import './HallOfScrolls.css';
 
@@ -17,15 +17,6 @@ const REVEAL_WRONG_S = 2;
 const REVEAL_RIGHT_S = 1;
 
 interface Question { q: string; choices: string[]; answer: number; fact: string }
-
-function shuffled<T>(items: readonly T[]): T[] {
-  const a = items.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 /** 5 random quiz facts; each question's choices are shuffled and the correct index is recomputed */
 function drawQuestions(): Question[] {

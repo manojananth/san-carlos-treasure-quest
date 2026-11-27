@@ -27,7 +27,7 @@ export function scoreFor(found: number, timeLeftFraction: number, reactionMs: nu
 const BASE_SECONDS = 40;
 const W = 400;
 const H = 250;
-const HIT_R = 19; // game units; about 33 px on a 390 px phone, invisible
+const HIT_R = 22; // game units; about 33 px on a 390 px phone, invisible
 const HINT_AFTER_MS = 15000; // Rookie sparkle
 const PENALTY_MS: Record<Difficulty, number> = { rookie: 0, pro: 1500, legend: 2500 };
 
@@ -307,8 +307,13 @@ function LightsPart({ api, onDone }: { api: ShellApi; onDone: (reactionMs: numbe
 
   const btnRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { btnRef.current?.focus({ preventScroll: true }); }, []);
+  const activeRef = useRef(api.active);
+  activeRef.current = api.active;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!activeRef.current) return;
+      const t = e.target as Element;
+      if (t !== document.body && !t.closest?.('.lc-lights')) return;
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!e.repeat) goRef.current(); }
     };
     window.addEventListener('keydown', onKey);

@@ -50,3 +50,8 @@
   .mg-count, .mg-result .star.on { animation: none !important; }
   .mg-bar-fill { transition: none; }
 }
+
+/* touch/mouse players never see keyboard focus rings */
+.mg[data-input='pointer'] :focus-visible { outline: none !important; }
+.mg[data-input='pointer'] .sp-ring,
+.mg[data-input='pointer'] .cc-car:not(.picked) .cc-ring { opacity: 0 !important; }

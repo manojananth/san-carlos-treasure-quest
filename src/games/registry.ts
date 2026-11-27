@@ -1,21 +1,15 @@
-import type { ComponentType } from 'react';
+import { lazy } from 'react';
+import type { ComponentType, LazyExoticComponent } from 'react';
 import type { StopId } from '../data/stops';
 import type { ChallengeProps } from './types';
-import { FieldGoal } from './burton/FieldGoal';
-import { PenaltyShootout } from './highlands/Penalty';
-import { CoupleTheCars } from './depot/CoupleTheCars';
-import { BigCanyon } from './bigcanyon/BigCanyon';
-import { SkyHangar } from './hiller/SkyHangar';
-import { MerchantRoad } from './laurel/MerchantRoad';
-import { HallOfScrolls } from './cityhall/HallOfScrolls';
 
-/** Stop -> mini-game. Milestone 3 swaps each entry for its own game. */
-export const GAMES: Record<StopId, ComponentType<ChallengeProps>> = {
-  depot: CoupleTheCars,
-  laurel: MerchantRoad,
-  cityhall: HallOfScrolls,
-  burton: FieldGoal,
-  bigcanyon: BigCanyon,
-  highlands: PenaltyShootout,
-  hiller: SkyHangar,
+/** Each mini-game is its own chunk: a stop's game loads only when it is first played. */
+export const GAMES: Record<StopId, LazyExoticComponent<ComponentType<ChallengeProps>>> = {
+  depot: lazy(() => import('./depot/CoupleTheCars').then((m) => ({ default: m.CoupleTheCars }))),
+  laurel: lazy(() => import('./laurel/MerchantRoad').then((m) => ({ default: m.MerchantRoad }))),
+  cityhall: lazy(() => import('./cityhall/HallOfScrolls').then((m) => ({ default: m.HallOfScrolls }))),
+  burton: lazy(() => import('./burton/FieldGoal').then((m) => ({ default: m.FieldGoal }))),
+  bigcanyon: lazy(() => import('./bigcanyon/BigCanyon').then((m) => ({ default: m.BigCanyon }))),
+  highlands: lazy(() => import('./highlands/Penalty').then((m) => ({ default: m.PenaltyShootout }))),
+  hiller: lazy(() => import('./hiller/SkyHangar').then((m) => ({ default: m.SkyHangar }))),
 };

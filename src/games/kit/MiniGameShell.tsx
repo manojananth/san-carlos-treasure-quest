@@ -52,6 +52,7 @@ function Countdown({ paused, onDone }: { paused: boolean; onDone: () => void }) 
  */
 export function MiniGameShell({ goal, diagram, paused = false, onFinish, children }: MiniGameShellProps) {
   const reduced = useReducedMotion();
+  const [kbd, setKbd] = useState(false);
   const [phase, setPhase] = useState<ShellPhase>('howto');
   const [result, setResult] = useState<{ stars: 1 | 2 | 3; cheer: string } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -82,7 +83,7 @@ export function MiniGameShell({ goal, diagram, paused = false, onFinish, childre
   const inert = phase !== 'play' ? ({ inert: '' } as Record<string, string>) : {};
 
   return (
-    <div className="mg" data-phase={phase}>
+    <div className="mg" data-phase={phase} onKeyDownCapture={() => setKbd(true)} onPointerDownCapture={() => setKbd(false)} data-input={kbd ? 'key' : 'pointer'}>
       <div className="mg-body" ref={bodyRef} tabIndex={-1}>
         <div className="mg-content" {...inert}>{children(api)}</div>
 

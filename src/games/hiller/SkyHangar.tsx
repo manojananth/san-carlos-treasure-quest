@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ChallengeProps } from '../types';
 import type { Difficulty } from '../../state/types';
-import { MiniGameShell, Stage, clientToStage, feedback, starsFor, usePointerDrag } from '../kit';
+import { MiniGameShell, Stage, clientToStage, feedback, starsFor, useLoop, usePointerDrag } from '../kit';
 import type { ShellApi } from '../kit';
-import { useLoop } from '../bigcanyon/useLoop';
 import {
   ANCHOR, MAX_ANGLE, MIN_ANGLE, NUDGES, RINGS, clamp, distanceM, launch, nudge, previewPath, ringCount, scoreOf, stepGlide,
 } from './glide';
@@ -353,8 +352,9 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
             <g ref={planeRef}><PaperPlane /></g>
             <text ref={stallRef} className="hl-text" fontSize={13} textAnchor="middle" style={{ display: 'none' }}>Stall!</text>
           </g>
+          <rect x={120} y={28} width={160} height={22} rx={11} fill="#fff7e3" stroke={INK} strokeWidth={2} />
           <text ref={liveRef} className="hl-text" x={200} y={44} fontSize={15} textAnchor="middle" />
-          <text ref={hintRef} className="hl-text" x={200} y={254} fontSize={15} textAnchor="middle" style={{ transition: 'opacity .3s' }}>Drag back and let go!</text>
+          <text ref={hintRef} className="hl-text" x={200} y={238} fontSize={15} textAnchor="middle" style={{ transition: 'opacity .3s' }}>Drag back and let go!</text>
           {banner && (
             <g>
               <rect x={70} y={84} width={260} height={44} rx={12} fill="#fff7e3" stroke={INK} strokeWidth={3} />

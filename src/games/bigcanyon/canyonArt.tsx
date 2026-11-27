@@ -120,8 +120,8 @@ export function Trees({ front }: { front: boolean }) {
   const items: ReactNode[] = [];
   for (let x = front ? 140 : 60; x < COURSE.length + 300; x += front ? 150 + r() * 120 : 46 + r() * 70) {
     if (inGully(x)) continue;
-    const s = front ? 1.05 + r() * 0.35 : 0.65 + r() * 0.5;
-    const y = front ? groundY(x) + 34 + r() * 26 : groundY(x) - 2 - r() * 6;
+    const s = front ? 0.8 + r() * 0.25 : 0.65 + r() * 0.5;
+    const y = front ? groundY(x) + 60 + r() * 20 : groundY(x) - 2 - r() * 6;
     items.push(r() > 0.5 ? <Oak key={x} x={x} y={y} s={s} /> : <Bay key={x} x={x} y={y} s={s * 1.05} />);
   }
   return <g>{items}</g>;

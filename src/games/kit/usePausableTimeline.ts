@@ -26,7 +26,9 @@ export function usePausableTimeline(paused: boolean) {
   /** like gsap.to(target, vars), but owned by this timeline */
   const tween = useCallback((target: gsap.TweenTarget, vars: gsap.TweenVars) => {
     const t = get();
-    return t.to(target, vars, t.time());
+    const tw = gsap.to(target, vars);
+    t.add(tw, t.time());
+    return tw;
   }, [get]);
   /** run a prepared tween / nested timeline (e.g. `gsap.timeline().to(...).to(...)`) on this timeline, starting now */
   const add = useCallback((child: gsap.core.Animation) => {

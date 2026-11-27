@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GameMap } from './map/GameMap';
 import type { GameMapHandle, MarkerState } from './map/GameMap';
 import { STOPS } from './data/stops';
@@ -34,7 +34,9 @@ function ChallengeFlow({ profile, run, stop, paused, onFinish }: { profile: Prof
   if (!started) return <StopCard stop={stop} first={run.at === 'depot' && run.unlocked.length === 1} onStart={() => setStarted(true)} />;
   return (
     <Sheet title={`${stop.theme} challenge`} heading={<>{stop.theme} <span>challenge</span></>} className="sheet-game">
-      <Game difficulty={snap.difficulty} timeScale={snap.timeScale} paused={paused} onFinish={onFinish} />
+      <Suspense fallback={<div className="mg-loading">Loading…</div>}>
+        <Game difficulty={snap.difficulty} timeScale={snap.timeScale} paused={paused} onFinish={onFinish} />
+      </Suspense>
     </Sheet>
   );
 }
