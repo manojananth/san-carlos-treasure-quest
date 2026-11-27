@@ -62,6 +62,7 @@ export function sanitizeRun(v: unknown): Run | null {
     xp: nat(v.xp),
     earned: arr(v.earned).filter((b): b is BadgeId => BADGE_IDS.includes(b as BadgeId)),
     startedAt: num(v.startedAt),
+    ...(v.mixed === true ? { mixed: true } : {}),
     ...(typeof v.finishedAt === 'number' ? { finishedAt: v.finishedAt } : {}),
   };
 }
@@ -86,11 +87,15 @@ function sanitizeProfile(v: unknown): Profile | null {
   };
 }
 
+/** Set when the save was written by a newer version of the game: never overwrite it. */
+let blocked = false;
+
 /** Parses and validates saved JSON. Anything wrong falls back to a fresh game (never throws). */
 export function parseSave(raw: string | null): GameState {
   if (!raw) return initialState();
   try {
     const data: unknown = JSON.parse(raw);
+    if (isObj(data) && typeof data.version === 'number' && data.version > 1) { blocked = true; return initialState(); }
     if (!isObj(data) || data.version !== 1 || !Array.isArray(data.profiles)) return initialState();
     const seen = new Set<string>();
     const profiles: Profile[] = [];
@@ -98,7 +103,7 @@ export function parseSave(raw: string | null): GameState {
       const s = sanitizeProfile(p);
       if (s && !seen.has(s.id) && profiles.length < MAX_PROFILES) { seen.add(s.id); profiles.push(s); }
     }
-    const activeId = typeof data.activeId === 'string' && seen.has(data.activeId) ? data.activeId : null;
+    const activeId = typeof data.activeId === 'string' && profiles.some((p) => p.id === data.activeId && p.run) ? data.activeId : null;
     const muted = isObj(data.settings) && data.settings.muted === true;
     return { profiles, activeId, settings: { muted } };
   } catch {
@@ -115,6 +120,7 @@ export function loadSave(): GameState {
 }
 
 export function writeSave(state: GameState): void {
+  if (blocked) return;
   try {
     const file: SaveFile = { version: 1, ...state };
     localStorage.setItem(SAVE_KEY, JSON.stringify(file));

@@ -59,7 +59,7 @@ const award = (run: Run, ...ids: BadgeId[]): Run => {
 function finishRun(state: GameState, run: Run, p: Profile, now: number): GameState {
   let r: Run = { ...run, phase: 'summary', finishedAt: now };
   const noHints = MAIN_STOPS.filter((id) => id !== 'depot').every((id) => !r.riddles[id]?.hinted);
-  r = award(r, 'trailblazer', ...(noHints ? (['no-peeking'] as BadgeId[]) : []), ...(p.difficulty === 'legend' ? (['legend'] as BadgeId[]) : []));
+  r = award(r, 'trailblazer', ...(noHints ? (['no-peeking'] as BadgeId[]) : []), ...(p.difficulty === 'legend' && !r.mixed ? (['legend'] as BadgeId[]) : []));
   const stars = totalStars(r);
   const best = !p.best || r.xp > p.best.xp ? { xp: r.xp, stars, difficulty: p.difficulty, finishedAt: now } : p.best;
   return {
@@ -96,7 +96,16 @@ export function reducer(state: GameState, a: Action): GameState {
     case 'setDifficulty': {
       const p = activeProfile(state);
       if (!p || p.difficulty === a.difficulty) return state;
-      return { ...state, profiles: state.profiles.map((q) => (q.id === p.id ? { ...p, difficulty: a.difficulty } : q)) };
+      let run = p.run;
+      if (run && run.phase !== 'intro' && run.phase !== 'summary') {
+        run = { ...run, mixed: true };
+        if (run.phase === 'riddle') {
+          const t = nextStopId(run);
+          const rs = t ? run.riddles[t] : undefined;
+          if (t && rs) run = { ...run, riddles: { ...run.riddles, [t]: { ...rs, wrong: [] } } };
+        }
+      }
+      return { ...state, profiles: state.profiles.map((q) => (q.id === p.id ? { ...p, difficulty: a.difficulty, run } : q)) };
     }
     case 'startRun':
     case 'resetRun': {

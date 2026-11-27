@@ -27,13 +27,14 @@ const newId = () => (globalThis.crypto?.randomUUID?.() ?? `p${Date.now().toStrin
 
 interface Toast { id: number; text: string; kind: 'unlock' | 'fragment' | 'badge' }
 
-function ChallengeFlow({ profile, run, stop, onFinish }: { profile: Profile; run: Run; stop: Stop; onFinish: (s: 1 | 2 | 3) => void }) {
+function ChallengeFlow({ profile, run, stop, paused, onFinish }: { profile: Profile; run: Run; stop: Stop; paused: boolean; onFinish: (s: 1 | 2 | 3) => void }) {
   const [started, setStarted] = useState(false);
   const Game = GAMES[stop.id];
+  const [snap] = useState(() => ({ difficulty: profile.difficulty, timeScale: DIFFICULTY[profile.difficulty].timeScale }));
   if (!started) return <StopCard stop={stop} first={run.at === 'depot' && run.unlocked.length === 1} onStart={() => setStarted(true)} />;
   return (
     <Sheet title={`${stop.theme} challenge`} heading={<>{stop.theme} <span>challenge</span></>} className="sheet-game">
-      <Game difficulty={profile.difficulty} timeScale={DIFFICULTY[profile.difficulty].timeScale} onFinish={onFinish} />
+      <Game difficulty={snap.difficulty} timeScale={snap.timeScale} paused={paused} onFinish={onFinish} />
     </Sheet>
   );
 }
@@ -173,7 +174,7 @@ function Game() {
       )}
 
       <div hidden={overlayOpen}>
-        {!profile && (
+        {(!profile || !run) && (
           <ProfileScreen
             profiles={state.profiles}
             onPick={(id) => dispatch({ type: 'selectProfile', id, now: Date.now() })}
@@ -189,15 +190,17 @@ function Game() {
             profile={profile}
             run={run}
             stop={STOPS[atIdx]}
+            paused={overlayOpen}
             onFinish={(stars) => dispatch({ type: 'finishChallenge', stars, now: Date.now() })}
           />
         )}
         {profile && run && phase === 'riddle' && riddle && target && (
           <RiddleCard
-            key={`${key}:${target}`}
+            key={`${key}:${target}:${profile.difficulty}`}
             riddle={riddle}
             state={run.riddles[target]}
             difficulty={profile.difficulty}
+            paused={overlayOpen}
             bonus={!!targetStop?.bonus}
             onAnswer={(choice) => {
               if (choice === riddle.answer) setBusy(true); // the unlock fly-to starts next; keep Walk disabled until it ends

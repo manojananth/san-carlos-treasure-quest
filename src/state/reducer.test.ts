@@ -3,7 +3,7 @@ import { RIDDLES } from '../data/riddles';
 import { STOPS } from '../data/stops';
 import { activeProfile, initialState, nextStopId, reducer } from './reducer';
 import type { Action } from './reducer';
-import { parseSave } from './storage';
+import { parseSave, writeSave, SAVE_KEY } from './storage';
 import type { Difficulty, GameState, Stars } from './types';
 
 const run = (s: GameState, ...as: Action[]) => as.reduce(reducer, s);
@@ -211,7 +211,54 @@ describe('badges', () => {
   });
 });
 
+describe('difficulty switching', () => {
+  it('clears wrong answers on the pending riddle so it stays answerable', () => {
+    let s = challenge(create('legend'));
+    const w = ([0, 1, 2] as const).filter((c) => c !== correctChoice(s));
+    for (const c of w) s = reducer(s, { type: 'answerRiddle', choice: c });
+    expect(R(s).riddles.laurel?.wrong).toHaveLength(2);
+    s = reducer(s, { type: 'setDifficulty', difficulty: 'pro' });
+    expect(R(s).riddles.laurel?.wrong).toEqual([]);
+    expect(R(solve(s)).phase).toBe('travel');
+  });
+  it('mid-run switch forfeits the Legend badge', () => {
+    let s = create('pro');
+    for (let i = 0; i < 5; i++) {
+      s = challenge(s);
+      if (i === 1) s = reducer(s, { type: 'setDifficulty', difficulty: 'legend' });
+      s = walk(solve(s));
+    }
+    s = reducer(challenge(s), { type: 'skipBonus', now: 9 });
+    expect(R(s).mixed).toBe(true);
+    expect(P(s).badges).not.toContain('legend');
+    expect(R(parseSave(JSON.stringify({ version: 1, ...s }))).mixed).toBe(true);
+  });
+  it('switching on the intro screen is not mixed', () => {
+    expect(R(reducer(create('pro'), { type: 'setDifficulty', difficulty: 'legend' })).mixed).toBeUndefined();
+  });
+});
+
 describe('persistence', () => {
+  it('drops activeId when the active profile has no usable run', () => {
+    const base = P(create());
+    const bad = { ...base, run: { phase: 'bogus', at: 'depot', unlocked: ['depot'] } };
+    const out = parseSave(JSON.stringify({ version: 1, activeId: base.id, profiles: [bad] }));
+    expect(out.profiles[0].run).toBeNull();
+    expect(out.activeId).toBeNull();
+  });
+  it('a future-version save is ignored and never overwritten', () => {
+    const store = new Map<string, string>();
+    (globalThis as { localStorage?: unknown }).localStorage = {
+      getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v),
+    };
+    const raw = JSON.stringify({ version: 2, profiles: [] });
+    store.set(SAVE_KEY, raw);
+    expect(parseSave(raw)).toEqual(initialState());
+    writeSave(create());
+    expect(store.get(SAVE_KEY)).toBe(raw);
+    delete (globalThis as { localStorage?: unknown }).localStorage;
+  });
+
   const save = (s: GameState) => JSON.stringify({ version: 1, ...s });
   it('round-trips a game', () => {
     const s = advance(create());

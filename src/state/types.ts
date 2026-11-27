@@ -37,6 +37,8 @@ export interface Run {
   earned: BadgeId[];
   startedAt: number;
   finishedAt?: number;
+  /** difficulty was changed mid-run, so the Legend badge is not available */
+  mixed?: boolean;
 }
 
 export interface Best {

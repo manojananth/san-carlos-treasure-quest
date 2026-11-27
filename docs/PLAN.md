@@ -106,3 +106,12 @@ timeScale), RiddleCard (question, 3 big choices, hint button showing cost, timer
 SummaryCard, Menu sheet (difficulty, badges, leaderboard, switch player, restart run), Leaderboard (profiles on
 this device by best XP, stars, badges). Focus management + Esc closes sheets; all buttons ≥ 44 px.
 Riddle and stop content in `src/data/riddles.ts` (3 tiers per stop) and `src/data/facts.ts` (for the M3 quiz).
+
+### M2 implementation notes
+- Extra reducer actions beyond the plan: `continueIntro`, `cancelWalk`, `riddleTimeout` (counts as a wrong try).
+- `Run.earned` (badges earned this run), `RiddleState.wrong` (greyed choices; cleared when difficulty changes mid-riddle),
+  `Run.mixed` (difficulty changed mid-run: Legend badge is not awarded).
+- Hiller (Sky High) finish gives a flat +40 XP bonus (scaled by the XP multiplier).
+- Save files with `version > 1` are ignored and never overwritten. An active profile without a valid run is deselected on load.
+- Known gap (accepted for now): the riddle timer restarts from full on reload.
+- Mini-game contract: props (`difficulty`, `timeScale`) are fixed at mount (snapshotted in ChallengeFlow); games must honor `paused`.
