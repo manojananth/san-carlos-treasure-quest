@@ -18,7 +18,7 @@ interface StopSeed { id: string; lon: number; lat: number; poi?: RegExp; note: s
 const SEEDS: StopSeed[] = [
   { id: 'depot', lon: -122.2621, lat: 37.5075, poi: /museum of san carlos history/i, note: '1888 stone depot (Museum of San Carlos History)' },
   { id: 'laurel', lon: -122.2615, lat: 37.5065, poi: /san carlos avenue & laurel street/i, note: 'Laurel St & San Carlos Ave' },
-  { id: 'cityhall', lon: -122.2627, lat: 37.5043, poi: /san carlos city hall/i, note: 'City Hall, Elm St' },
+  { id: 'cityhall', lon: -122.2623, lat: 37.5036, poi: /san carlos branch.*library/i, note: 'Library next to City Hall, Elm St' },
   { id: 'burton', lon: -122.2582, lat: 37.4978, poi: /burton park/i, note: 'E R Burton Park' },
   { id: 'bigcanyon', lon: -122.2798, lat: 37.4866, poi: /^big canyon park$/i, note: 'Big Canyon Park' },
   { id: 'highlands', lon: -122.2747, lat: 37.4956, poi: /^highlands park$/i, note: 'Highlands Park' },
@@ -192,12 +192,13 @@ async function main() {
     }
     let healed = 0;
     for (let u = 0; u < nodes.length; u++) {
-      if (adj[u].length !== 1) continue; // dead-ends only
+      const deadEnd = adj[u].length === 1;
+      if (!deadEnd) continue;
       const P = px(nodes[u]);
-      let bestD = HEAL_M, bestSeg: [number, number] | null = null, bestT = 0;
+      let bestD = deadEnd ? HEAL_M : 3, bestSeg: [number, number] | null = null, bestT = 0;
       const gx = Math.floor(P[0] / CELL), gy = Math.floor(P[1] / CELL);
       for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const [a, b] of grid.get((gx + dx) + ',' + (gy + dy)) ?? []) {
-        if (cm[a] === cm[u] || a === u || b === u) continue;
+        if ((deadEnd && cm[a] === cm[u]) || a === u || b === u || adj[u].some((e) => e.to === a || e.to === b)) continue;
         const A = px(nodes[a]), B = px(nodes[b]);
         const vx = B[0] - A[0], vy = B[1] - A[1], L2 = vx * vx + vy * vy || 1e-9;
         const t = Math.max(0, Math.min(1, ((P[0] - A[0]) * vx + (P[1] - A[1]) * vy) / L2));
@@ -318,7 +319,10 @@ async function main() {
   for (const [from, to] of LEGS) {
     const path = dijkstra(stopNode[from], stopNode[to]);
     let pts: LL[] = path.map((i) => nodes[i]);
-    // simplify: drop points <1 m apart
+    // remove tiny out-and-back spurs (snapping artefacts), then drop points <1 m apart
+    for (let i = 1; i < pts.length - 1; i++) {
+      if (haversine(pts[i - 1], pts[i]) < 8 && haversine(pts[i - 1], pts[i + 1]) < 3 && i + 1 < pts.length - 1) { pts.splice(i, 2); i = Math.max(0, i - 2); }
+    }
     const out: LL[] = [pts[0]];
     for (let i = 1; i < pts.length - 1; i++) if (haversine(out[out.length - 1], pts[i]) >= 1) out.push(pts[i]);
     out.push(pts[pts.length - 1]);
@@ -328,7 +332,7 @@ async function main() {
     const straight = haversine(stops[from], stops[to]);
     const ratio = len / straight;
     console.log(`leg ${from} -> ${to}: ${len.toFixed(0)} m (straight ${straight.toFixed(0)} m, x${ratio.toFixed(2)}, ${pts.length} pts)`);
-    if (ratio >= 3.5) { console.error(`FAIL: ${from}->${to} route is ${ratio.toFixed(2)}x straight-line`); failed = true; }
+    if (ratio >= 3) { console.error(`FAIL: ${from}->${to} route is ${ratio.toFixed(2)}x straight-line`); failed = true; }
     features.push({
       type: 'Feature', properties: { from, to, lengthM: Math.round(len) },
       geometry: { type: 'LineString', coordinates: pts.map((p) => [+p[0].toFixed(6), +p[1].toFixed(6)]) },
