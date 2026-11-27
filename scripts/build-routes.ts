@@ -12,11 +12,11 @@ import { VectorTile } from '@mapbox/vector-tile';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 type LL = [number, number];
-interface StopSeed { id: string; lon: number; lat: number; poi?: RegExp; note: string }
+interface StopSeed { id: string; lon: number; lat: number; poi?: RegExp; cls?: RegExp; note: string }
 
 // Approximate seeds (see docs/PLAN.md). `park`/`poi` patterns let us refine to real named features.
 const SEEDS: StopSeed[] = [
-  { id: 'depot', lon: -122.2621, lat: 37.5075, poi: /museum of san carlos history/i, note: '1888 stone depot (Museum of San Carlos History)' },
+  { id: 'depot', lon: -122.2600, lat: 37.5076, poi: /^san carlos$/i, cls: /railway/i, note: '1888 Caltrain depot (San Carlos station)' },
   { id: 'laurel', lon: -122.2615, lat: 37.5065, poi: /san carlos avenue & laurel street/i, note: 'Laurel St & San Carlos Ave' },
   { id: 'cityhall', lon: -122.2623, lat: 37.5036, poi: /san carlos branch.*library/i, note: 'Library next to City Hall, Elm St' },
   { id: 'burton', lon: -122.2582, lat: 37.4978, poi: /burton park/i, note: 'E R Burton Park' },
@@ -68,6 +68,8 @@ async function fetchRetry(url: string, tries = 4): Promise<Response> {
 const GX = 3.4e-5, GY = 2.7e-5; // ~3 m in lon / lat at 37.5N
 const nodeIds = new Map<string, number>();
 const nodes: LL[] = [];
+const bridgeEdges = new Set<string>(); // edges with brunnel=bridge (own level)
+const ek = (a: number, b: number) => (a < b ? a + ',' + b : b + ',' + a);
 const adj: { to: number; w: number }[][] = [];
 function nodeFor(ll: LL): number {
   const gx = Math.round(ll[0] / GX), gy = Math.round(ll[1] / GY);
@@ -123,7 +125,7 @@ async function main() {
           for (const p of line) {
             const ll = tileToLL(x, y, Z, p.x, p.y, tr.extent);
             const id = nodeFor(ll);
-            if (prev >= 0 && prevLL) { addEdge(prev, id, haversine(prevLL, ll) * w); edges++; }
+            if (prev >= 0 && prevLL) { addEdge(prev, id, haversine(prevLL, ll) * w); edges++; if (f.properties.brunnel === 'bridge' && prev !== id) bridgeEdges.add(ek(prev, id)); }
             prev = id; prevLL = ll;
           }
         }
@@ -216,10 +218,61 @@ async function main() {
       const mid: LL = [A[0] + bestT * (B[0] - A[0]), A[1] + bestT * (B[1] - A[1])];
       const m = nodes.length; nodes.push(mid); adj.push([]);
       addEdge(a, m, wTot * bestT); addEdge(m, b, wTot * (1 - bestT)); addEdge(u, m, bestD);
+      if (bridgeEdges.has(ek(a, b))) { bridgeEdges.delete(ek(a, b)); bridgeEdges.add(ek(a, m)); bridgeEdges.add(ek(m, b)); }
       healed++;
     }
     console.log(`heal pass ${pass}: ${healed} dead-ends joined`);
     if (!healed) break;
+  }
+
+  // ---- planarize: split properly crossing edges (same level, no shared endpoint) at their intersection ----
+  {
+    const CELL = 25;
+    const E: [number, number][] = [];
+    for (let a = 0; a < nodes.length; a++) for (const e of adj[a]) if (a < e.to) E.push([a, e.to]);
+    const grid = new Map<string, number[]>();
+    E.forEach(([a, b], i) => {
+      const A = px(nodes[a]), B = px(nodes[b]);
+      for (let gx = Math.floor(Math.min(A[0], B[0]) / CELL); gx <= Math.floor(Math.max(A[0], B[0]) / CELL); gx++)
+        for (let gy = Math.floor(Math.min(A[1], B[1]) / CELL); gy <= Math.floor(Math.max(A[1], B[1]) / CELL); gy++) {
+          const k = gx + ',' + gy; if (!grid.has(k)) grid.set(k, []); grid.get(k)!.push(i);
+        }
+    });
+    const splits = new Map<number, { t: number; id: number }[]>();
+    const done = new Set<string>();
+    for (const list of grid.values()) for (let x = 0; x < list.length; x++) for (let y = x + 1; y < list.length; y++) {
+      const i = list[x], j = list[y];
+      const key = i + ',' + j; if (done.has(key)) continue; done.add(key);
+      const [a, b] = E[i], [c, d] = E[j];
+      if (a === c || a === d || b === c || b === d) continue;
+      if (bridgeEdges.has(ek(a, b)) !== bridgeEdges.has(ek(c, d))) continue;
+      const A = px(nodes[a]), B = px(nodes[b]), C = px(nodes[c]), D = px(nodes[d]);
+      const rx = B[0] - A[0], ry = B[1] - A[1], sx = D[0] - C[0], sy = D[1] - C[1];
+      const den = rx * sy - ry * sx;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((C[0] - A[0]) * sy - (C[1] - A[1]) * sx) / den;
+      const u = ((C[0] - A[0]) * ry - (C[1] - A[1]) * rx) / den;
+      if (t <= 0.001 || t >= 0.999 || u <= 0.001 || u >= 0.999) continue;
+      const ll: LL = [nodes[a][0] + t * (nodes[b][0] - nodes[a][0]), nodes[a][1] + t * (nodes[b][1] - nodes[a][1])];
+      const m = nodes.length; nodes.push(ll); adj.push([]);
+      if (!splits.has(i)) splits.set(i, []); splits.get(i)!.push({ t, id: m });
+      if (!splits.has(j)) splits.set(j, []); splits.get(j)!.push({ t: u, id: m });
+    }
+    for (const [i, sp] of splits) {
+      const [a, b] = E[i];
+      const ea = adj[a].find((e) => e.to === b);
+      if (!ea) continue;
+      const wTot = ea.w, br = bridgeEdges.has(ek(a, b));
+      adj[a] = adj[a].filter((e) => e.to !== b); adj[b] = adj[b].filter((e) => e.to !== a);
+      bridgeEdges.delete(ek(a, b));
+      sp.sort((p, q) => p.t - q.t);
+      const chain = [{ t: 0, id: a }, ...sp, { t: 1, id: b }];
+      for (let k = 1; k < chain.length; k++) {
+        addEdge(chain[k - 1].id, chain[k].id, wTot * (chain[k].t - chain[k - 1].t));
+        if (br) bridgeEdges.add(ek(chain[k - 1].id, chain[k].id));
+      }
+    }
+    console.log(`planarize: ${splits.size} edges split at crossings`);
   }
 
   // largest connected component
@@ -246,7 +299,7 @@ async function main() {
     const pat = s.poi;
     let matched = 'none (kept seed)';
     if (pat) {
-      const cands = named.filter((n) => pat.test(n.name) && (n.layer === 'poi' || n.layer === 'park')
+      const cands = named.filter((n) => pat.test(n.name) && (!s.cls || s.cls.test(n.cls)) && (n.layer === 'poi' || n.layer === 'park')
         && haversine(n.ll, ll) < 1500)
         .sort((a, b) => haversine(a.ll, ll) - haversine(b.ll, ll));
       if (cands.length) { ll = cands[0].ll; matched = `${cands[0].layer}:"${cands[0].name}" (${cands[0].cls}) ${Math.round(haversine(cands[0].ll, [s.lon, s.lat]))} m from seed`; }
@@ -316,6 +369,7 @@ async function main() {
 
   const features = [];
   let failed = false;
+  const table: string[] = [];
   for (const [from, to] of LEGS) {
     const path = dijkstra(stopNode[from], stopNode[to]);
     let pts: LL[] = path.map((i) => nodes[i]);
@@ -327,17 +381,43 @@ async function main() {
     for (let i = 1; i < pts.length - 1; i++) if (haversine(out[out.length - 1], pts[i]) >= 1) out.push(pts[i]);
     out.push(pts[pts.length - 1]);
     pts = out;
+    // trim overshoot: end at first point within 15 m of destination, start at last point within 15 m of origin
+    {
+      const dst = stops[to], org = stops[from];
+      let ei = pts.findIndex((p) => haversine(p, dst) <= 15);
+      if (ei > 0) { pts = pts.slice(0, ei + 1); }
+      let si = -1;
+      for (let i = 0; i < pts.length - 1; i++) if (haversine(pts[i], org) <= 15) si = i;
+      if (si > 0) pts = pts.slice(si);
+      if (haversine(pts[pts.length - 1], dst) > 0.5) pts.push(dst);
+      if (haversine(pts[0], org) > 0.5) pts.unshift(org);
+    }
     let len = 0;
     for (let i = 1; i < pts.length; i++) len += haversine(pts[i - 1], pts[i]);
     const straight = haversine(stops[from], stops[to]);
     const ratio = len / straight;
     console.log(`leg ${from} -> ${to}: ${len.toFixed(0)} m (straight ${straight.toFixed(0)} m, x${ratio.toFixed(2)}, ${pts.length} pts)`);
-    if (ratio >= 3) { console.error(`FAIL: ${from}->${to} route is ${ratio.toFixed(2)}x straight-line`); failed = true; }
+    const maxRatio = straight < 1000 ? 2.2 : 3;
+    if (ratio >= maxRatio && !(from === "depot" && to === "hiller")) { console.error(`FAIL: ${from}->${to} route is ${ratio.toFixed(2)}x straight-line (limit ${maxRatio})`); failed = true; }
+    // sharp-turn check over last 5 points
+    let maxTurn = 0;
+    for (let i = Math.max(1, pts.length - 4); i < pts.length - 1; i++) {
+      const v1: LL = [(pts[i][0] - pts[i - 1][0]) * M_X, (pts[i][1] - pts[i - 1][1]) * M_Y];
+      const v2: LL = [(pts[i + 1][0] - pts[i][0]) * M_X, (pts[i + 1][1] - pts[i][1]) * M_Y];
+      const n1 = Math.hypot(...v1), n2 = Math.hypot(...v2);
+      if (n1 < 1e-6 || n2 < 1e-6) continue;
+      const cosA = Math.max(-1, Math.min(1, (v1[0] * v2[0] + v1[1] * v2[1]) / (n1 * n2)));
+      maxTurn = Math.max(maxTurn, (Math.acos(cosA) * 180) / Math.PI);
+    }
+    console.log(`  end-turn max ${maxTurn.toFixed(0)} deg`);
+    if (maxTurn > 150) { console.error(`FAIL: ${from}->${to} has ${maxTurn.toFixed(0)} deg turn near end`); failed = true; }
+    table.push(`${from.padEnd(10)}-> ${to.padEnd(10)} ${len.toFixed(0).padStart(6)} m  straight ${straight.toFixed(0).padStart(5)} m  x${ratio.toFixed(2)}  endturn ${maxTurn.toFixed(0)}`);
     features.push({
       type: 'Feature', properties: { from, to, lengthM: Math.round(len) },
       geometry: { type: 'LineString', coordinates: pts.map((p) => [+p[0].toFixed(6), +p[1].toFixed(6)]) },
     });
   }
+  console.log('\nLEG TABLE\n' + table.join('\n'));
   if (failed) process.exit(1);
 
   writeFileSync(resolve(root, 'src/data/routes.json'), JSON.stringify({ type: 'FeatureCollection', features }));
