@@ -22,7 +22,8 @@ export class Explorer {
   private flip: HTMLDivElement;
   private tween: gsap.core.Tween | null = null;
   private facing = 1;
-  private pending: (() => void) | null = null;
+  /** Resolves the in-flight walk: true when the leg finished, false when it was stopped. */
+  private pending: ((ok: boolean) => void) | null = null;
 
   constructor(private map: maplibregl.Map, start: LonLat) {
     this.el = document.createElement('div');
@@ -56,14 +57,15 @@ export class Explorer {
     this.el.classList.remove('walking');
     const r = this.pending;
     this.pending = null;
-    r?.();
+    r?.(false);
   }
 
   /**
    * Walk along a leg. `onFrame(position, travelledMeters)` fires each frame (camera follow, trail drawing).
-   * Resolves when the leg is finished (immediately jumps under reduced motion).
+   * Resolves true when the leg is finished (immediately jumps under reduced motion),
+   * or false when the walk was interrupted by stop()/reset.
    */
-  walk(coords: LonLat[], onFrame: (p: LonLat, travelledM: number) => void): Promise<void> {
+  walk(coords: LonLat[], onFrame: (p: LonLat, travelledM: number) => void): Promise<boolean> {
     this.stop();
     const line = lineString(coords);
     const totalKm = length(line, { units: 'kilometers' });
@@ -74,12 +76,12 @@ export class Explorer {
     if (prefersReducedMotion()) {
       this.setPosition(end);
       onFrame(end, totalM);
-      return Promise.resolve();
+      return Promise.resolve(true);
     }
 
     this.el.classList.add('walking');
     const state = { t: 0 };
-    return new Promise<void>((resolve) => {
+    return new Promise<boolean>((resolve) => {
       this.pending = resolve;
       this.tween = gsap.to(state, {
         t: 1,
@@ -97,8 +99,9 @@ export class Explorer {
         onComplete: () => {
           this.marker.setLngLat(end);
           onFrame(end, totalM);
+          this.pending = null; // clear before stop() so it does not resolve this walk as cancelled
           this.stop();
-          resolve();
+          resolve(true);
         },
       });
     });

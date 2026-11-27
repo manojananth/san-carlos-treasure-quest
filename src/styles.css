@@ -35,7 +35,7 @@ body {
   padding: 6px 18px 8px; border: 3px solid var(--ink); border-radius: 14px;
   box-shadow: 0 4px 0 var(--ink); text-align: center;
 }
-.topbar h1 span { color: var(--gold); }
+.topbar h1 span { color: var(--gold); text-shadow: 0 2px 0 var(--ink); }
 
 /* ---- bottom panel ---- */
 .panel {
@@ -46,7 +46,7 @@ body {
   padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: space-between;
 }
 .panel-text { display: flex; flex-direction: column; min-width: 0; }
-.panel-text small { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--teal-dark); }
+.panel-text small { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #176966; }
 .panel-text strong { font-family: var(--font-display); font-weight: 400; font-size: 24px; line-height: 1.1; }
 .panel-actions { display: flex; gap: 10px; flex: 1 1 260px; justify-content: flex-end; }
 .btn {
@@ -96,8 +96,11 @@ body {
   width: 30px; height: 30px; border-radius: 50%; background: var(--gold); color: var(--ink);
   border: 3px solid var(--ink); display: grid; place-items: center; font-size: 16px;
 }
+/* invisible enlarged hit area so the badge is easy to tap on a phone */
+.sign-badge::before { content: ''; position: absolute; inset: -12px; }
 .sign-q { display: none; }
 .sign-post { width: 7px; height: calc(56px * var(--ss, 1)); background: #8a5a33; border: 2px solid var(--ink); border-top: 0; border-radius: 0 0 2px 2px; }
+.sign.tall .sign-post { height: calc(92px * var(--ss, 1)); }
 .sign-ribbon {
   position: absolute; top: -13px; right: -14px; transform: rotate(8deg);
   background: var(--gold); color: var(--ink); border: 2px solid var(--ink); border-radius: 4px;
@@ -129,6 +132,7 @@ body {
 .signs-compact .sign:not(.current) .sign-badge { position: static; transform: none; box-shadow: 0 3px 0 var(--ink); }
 
 /* popup */
+.maplibregl-popup { z-index: 200000; }
 .sign-popup .maplibregl-popup-content {
   background: var(--paper); border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 var(--ink);
   padding: 10px 38px 10px 14px; font-family: var(--font-body);
@@ -141,7 +145,7 @@ body {
 
 /* ---- explorer ---- */
 .explorer { width: 0; pointer-events: none; z-index: 3; }
-.explorer-flip { width: calc(44px * var(--ss, 1)); height: calc(58px * var(--ss, 1)); margin-left: calc(-22px * var(--ss, 1)); transform-origin: 50% 100%; }
+.explorer-flip { width: calc(44px * var(--ss, 1)); height: calc(58px * var(--ss, 1)); margin-left: calc(-22px * var(--ss, 1)); transform-origin: 50% 100%; filter: drop-shadow(0 0 3px #fff); }
 .explorer-svg { width: 100%; height: 100%; overflow: visible; display: block; filter: drop-shadow(0 2px 0 rgba(255,255,255,.7)); }
 .explorer.walking .explorer-svg { animation: bob .36s ease-in-out infinite; }
 .explorer.walking .leg-f { animation: stepf .36s ease-in-out infinite; transform-origin: 36px 58px; }
@@ -150,10 +154,11 @@ body {
 @keyframes stepf { 0%, 100% { transform: rotate(14deg); } 50% { transform: rotate(-14deg); } }
 @keyframes stepb { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
 
+.maplibregl-ctrl-top-left { top: 64px; }
 .maplibregl-ctrl-bottom-right { bottom: 150px; }
 .maplibregl-ctrl-group button { width: 44px; height: 44px; }
-@media (max-width: 480px) { .maplibregl-ctrl-bottom-right { bottom: 168px; } .maplibregl-ctrl-bottom-left { bottom: 150px; } }
-@media (max-height: 480px) { .maplibregl-ctrl-bottom-right { bottom: 0; } .maplibregl-ctrl-bottom-left { bottom: 0; left: 400px; } }
+@media (max-width: 480px) { .maplibregl-ctrl-bottom-right { bottom: 168px; } }
+@media (max-height: 480px) { .maplibregl-ctrl-bottom-right { bottom: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   .sign.current .sign-pulse { animation: none; opacity: .8; transform: scale(1); }

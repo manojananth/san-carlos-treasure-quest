@@ -21,8 +21,9 @@ export default function App() {
     if (walking || !next) return;
     setWalking(true);
     try {
-      await mapRef.current?.walk(at, at + 1);
-      setAt((a) => a + 1);
+      const ok = await mapRef.current?.walk(at, at + 1);
+      // a reset during the walk cancels it; only advance when the leg really finished
+      if (ok) setAt((a) => a + 1);
     } finally {
       setWalking(false);
     }

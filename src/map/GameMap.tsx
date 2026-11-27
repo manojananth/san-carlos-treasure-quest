@@ -4,8 +4,8 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import routesJson from '../data/routes.json';
 import { STOPS } from '../data/stops';
 import type { LonLat } from '../data/stops';
-import { STYLE_URL, addTerrain, addTrailLayers } from './style';
-import { Explorer } from './explorer';
+import { STYLE_URL, addTerrain, addTrailLayers, tidyBaseMap } from './style';
+import { Explorer, prefersReducedMotion } from './explorer';
 import { cumulative } from './geo';
 
 type Leg = { from: string; to: string; coords: LonLat[]; lengthM: number };
@@ -15,11 +15,27 @@ const LEGS: Leg[] = ROUTES.features.map((f) => ({
 }));
 const legBetween = (a: string, b: string) => LEGS.find((l) => l.from === a && l.to === b);
 
+/** Bounds of every stop: the initial and reset camera frames all of them (padding clears the top bar and panel). */
+const STOP_LONS = STOPS.map((s) => s.lonLat[0]);
+const STOP_LATS = STOPS.map((s) => s.lonLat[1]);
+const STOP_BOUNDS: [LonLat, LonLat] = [
+  [Math.min(...STOP_LONS), Math.min(...STOP_LATS)],
+  [Math.max(...STOP_LONS), Math.max(...STOP_LATS)],
+];
+const FIT_OPTIONS: maplibregl.FitBoundsOptions = {
+  padding: { top: 90, bottom: 190, left: 40, right: 40 },
+  pitch: 60,
+  bearing: -20,
+};
+
 export type MarkerState = 'locked' | 'unlocked' | 'current' | 'done';
 
 export interface GameMapHandle {
-  /** Walk the explorer from stop index `from` to `to` (consecutive stops). */
-  walk(from: number, to: number): Promise<void>;
+  /**
+   * Walk the explorer from stop index `from` to `to` (consecutive stops).
+   * Resolves true when the leg completed, false when it was interrupted by reset (or could not start).
+   */
+  walk(from: number, to: number): Promise<boolean>;
   /** Put explorer at stop `index` and reset camera + done trail to the stops before it. */
   reset(index: number): void;
 }
@@ -28,15 +44,19 @@ interface Props {
   onReady: () => void;
 }
 
-const START_CAMERA = () => {
-  const d = STOPS[0].lonLat, h = STOPS[5].lonLat;
-  const narrow = window.innerWidth < 600;
-  const t = narrow ? 0.4 : 0.45; // portrait: lean toward the depot so Base Camp is not clipped
-  return {
-    center: [d[0] + (h[0] - d[0]) * t, d[1] + (h[1] - d[1]) * t] as LonLat,
-    zoom: narrow ? 13.1 : 14.3, pitch: 60, bearing: -20,
-  };
-};
+/** Wait for the next 'moveend' (or a timeout, in case no move was needed). */
+function moveEnd(map: maplibregl.Map, ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    let timer = 0;
+    const done = () => {
+      window.clearTimeout(timer);
+      map.off('moveend', done);
+      resolve();
+    };
+    timer = window.setTimeout(done, ms);
+    map.on('moveend', done);
+  });
+}
 
 function buildMarkerEl(i: number): HTMLDivElement {
   const s = STOPS[i];
@@ -62,8 +82,11 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const explorerRef = useRef<Explorer | null>(null);
+  const popupRef = useRef<maplibregl.Popup | null>(null);
   const markersRef = useRef<{ marker: maplibregl.Marker; el: HTMLDivElement }[]>([]);
   const doneRef = useRef<GeoJSON.Feature[]>([]);
+  /** bumped on reset so an in-flight walk knows it was cancelled */
+  const genRef = useRef(0);
   const statesRef = useRef(states);
   statesRef.current = states;
   const onReadyRef = useRef(onReady);
@@ -85,14 +108,14 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
 
   useEffect(() => {
     if (!container.current) return;
-    const cam = START_CAMERA();
     const map = new maplibregl.Map({
       container: container.current,
       style: STYLE_URL,
-      ...cam,
+      bounds: STOP_BOUNDS,
+      fitBoundsOptions: FIT_OPTIONS,
       minZoom: 12.5,
       maxZoom: 18,
-      maxPitch: 75,
+      maxPitch: 68,
       maxBounds: [[-122.36, 37.45], [-122.2, 37.55]],
       dragPan: true,
       dragRotate: true,
@@ -101,10 +124,21 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
       canvasContextAttributes: { antialias: true },
     } as maplibregl.MapOptions);
     mapRef.current = map;
-    (window as unknown as { __map: maplibregl.Map }).__map = map;
+    if (import.meta.env.DEV || location.search.includes('debug')) {
+      (window as unknown as { __map: maplibregl.Map }).__map = map;
+    }
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
-    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'top-left');
+    // MapLibre re-opens the compact attribution whenever it refreshes (resize, style/source/terrain updates).
+    // Its listeners were registered first, so re-collapsing on the same events runs after them.
+    const collapseAttribution = () => {
+      const a = map.getContainer().querySelector('.maplibregl-ctrl-attrib');
+      a?.classList.remove('maplibregl-compact-show');
+      a?.removeAttribute('open');
+    };
+    collapseAttribution();
+    for (const ev of ['resize', 'styledata', 'sourcedata', 'terrain'] as const) map.on(ev, collapseAttribution);
 
     // Liberty references a few sprite icons that its sprite sheet lacks; supply blanks to keep the console clean.
     map.on('styleimagemissing', (e) => {
@@ -113,9 +147,11 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
     map.on('style.load', () => {
       addTerrain(map);
       addTrailLayers(map, ROUTES);
+      tidyBaseMap(map);
     });
 
-    const popup = new maplibregl.Popup({ offset: [0, -96], closeButton: true, className: 'sign-popup', maxWidth: '240px' });
+    const popup = new maplibregl.Popup({ closeButton: true, className: 'sign-popup', maxWidth: '240px' });
+    popupRef.current = popup;
     markersRef.current = STOPS.map((s, i) => {
       const el = buildMarkerEl(i);
       const show = () => {
@@ -126,7 +162,8 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
         const p = document.createElement('span');
         p.textContent = s.name;
         box.append(h, p);
-        popup.setLngLat(s.lonLat).setDOMContent(box).addTo(map);
+        // sit just above the sign, whatever its current height (tall posts when overlapping)
+        popup.setOffset([0, -(el.offsetHeight + 8)]).setLngLat(s.lonLat).setDOMContent(box).addTo(map);
       };
       el.addEventListener('click', (e) => { e.stopPropagation(); show(); });
       el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(); } });
@@ -135,17 +172,29 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
       return { marker, el };
     });
     applyStates();
-    // keep nearer (lower on screen) signs in front so clustered stops overlap sensibly
+    // keep nearer (lower on screen) signs in front so clustered stops overlap sensibly.
+    // A sign whose board would overlap one already placed behind it gets a taller post, lifting its board.
     const sortSigns = () => {
-      markersRef.current.forEach(({ marker, el }) => {
+      const ss = Number(map.getContainer().style.getPropertyValue('--ss')) || 1;
+      const items = markersRef.current.map(({ marker, el }) => {
         const p = map.project(marker.getLngLat());
-        el.style.zIndex = String(Math.round(p.y) + 1000);
+        const r = (el.querySelector('.sign-board') as HTMLElement).getBoundingClientRect();
+        // board size does not change with .tall, so measure the base (56px) geometry to avoid flip-flopping
+        const right = p.x + r.width / 2, left = p.x - r.width / 2;
+        const bottom = p.y - 56 * ss, top = bottom - r.height;
+        return { el, y: p.y, box: { left, right, top, bottom } };
+      }).sort((a, b) => a.y - b.y);
+      const overlap = (a: typeof items[0]['box'], b: typeof items[0]['box']) =>
+        a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      items.forEach((it, j) => {
+        it.el.style.zIndex = String(Math.round(it.y) + 1000);
+        it.el.classList.toggle('tall', items.slice(0, j).some((o) => overlap(o.box, it.box)));
       });
     };
     map.on('render', sortSigns);
     // signs/explorer shrink a little when zoomed out so clustered stops stay readable
     const scaleSigns = () => {
-      const k = Math.min(1.1, Math.max(0.66, 0.66 + (map.getZoom() - 13.3) * 0.2));
+      const k = Math.min(1.1, Math.max(0.8, 0.66 + (map.getZoom() - 13.3) * 0.2));
       map.getContainer().style.setProperty('--ss', k.toFixed(3));
       map.getContainer().classList.toggle('signs-compact', map.getZoom() < 13.6);
     };
@@ -164,7 +213,9 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
     map.on('error', (e) => console.warn('[map]', e?.error?.message ?? e));
 
     return () => {
+      genRef.current++;
       explorerRef.current?.stop();
+      popupRef.current = null;
       map.remove();
       mapRef.current = null;
     };
@@ -175,31 +226,55 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
   useImperativeHandle(ref, () => ({
     async walk(from, to) {
       const map = mapRef.current, ex = explorerRef.current;
-      if (!map || !ex) return;
+      if (!map || !ex) return false;
       const leg = legBetween(STOPS[from].id, STOPS[to].id);
-      if (!leg) return;
+      if (!leg) return false;
+      const gen = genRef.current;
       const cum = cumulative(leg.coords);
+      const totalM = cum[cum.length - 1];
       const finish = () => { doneRef.current = [...doneRef.current, legFeature(leg)]; setDone(); };
-      await ex.walk(leg.coords, (p, travelled) => {
+
+      // bring the camera down to the start of the leg so the walk is visible, then follow
+      const start = leg.coords[0];
+      const zoom = Math.max(map.getZoom(), 15.5);
+      if (prefersReducedMotion()) {
+        map.jumpTo({ center: start, zoom });
+      } else {
+        const settled = moveEnd(map, 1200);
+        map.easeTo({ center: start, zoom, duration: 600 });
+        await settled;
+      }
+      if (gen !== genRef.current) return false; // reset happened while the camera was moving
+
+      let lastDraw = -Infinity;
+      const ok = await ex.walk(leg.coords, (p, travelled) => {
         map.jumpTo({ center: p });
-        // draw the walked part of this leg solid
+        // draw the walked part of this leg solid, at most every 100 ms (always on the final frame)
+        const now = performance.now();
+        const final = travelled >= totalM;
+        if (!final && now - lastDraw < 100) return;
+        lastDraw = now;
         let k = cum.findIndex((c) => c > travelled);
         if (k < 0) k = cum.length;
         const part = leg.coords.slice(0, Math.max(1, k));
         part.push(p);
         setDone({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: part } });
       });
+      if (!ok || gen !== genRef.current) return false;
       finish();
+      return true;
     },
     reset(index) {
       const map = mapRef.current, ex = explorerRef.current;
       if (!map || !ex) return;
+      genRef.current++;
+      map.stop();
       ex.stop();
+      popupRef.current?.remove();
       ex.setPosition(STOPS[index].lonLat);
       doneRef.current = [];
       setDone();
-      const cam = START_CAMERA();
-      map.jumpTo({ ...cam });
+      map.fitBounds(STOP_BOUNDS, { ...FIT_OPTIONS, animate: false });
     },
   }), []);
 
