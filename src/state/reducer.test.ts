@@ -21,6 +21,9 @@ const correctChoice = (s: GameState) => RIDDLES[nextStopId(R(s))! as keyof typeo
 const solve = (s: GameState) => reducer(s, { type: 'answerRiddle', choice: correctChoice(s) });
 const wrongChoice = (s: GameState) => ([0, 1, 2] as const).find((c) => c !== correctChoice(s))!;
 const walk = (s: GameState) => run(s, { type: 'startWalk' }, { type: 'arrive', now: T });
+/** finale: walk back, puzzle, open the chest, see the summary */
+const finale = (s: GameState) =>
+  run(s, { type: 'startFinaleWalk' }, { type: 'arriveDepot' }, { type: 'puzzleSolved' }, { type: 'openChest', now: T }, { type: 'showSummary' });
 /** challenge + riddle + walk: leaves the player at the next stop, phase 'challenge' */
 const advance = (s: GameState, stars: Stars = 3) => walk(solve(challenge(s, stars)));
 
@@ -135,6 +138,9 @@ describe('flow and unlock order', () => {
     s = walk(solve(s));
     expect(R(s).at).toBe('hiller');
     s = challenge(s, 2);
+    expect(R(s)).toMatchObject({ phase: 'finale', finaleStep: 'return', at: 'hiller' });
+    expect(P(s).best).toBeNull();
+    s = finale(s);
     expect(R(s).phase).toBe('summary');
     expect(R(s).fragments).toHaveLength(6);
     expect(R(s).unlocked).toEqual(STOPS.map((x) => x.id));
@@ -147,6 +153,8 @@ describe('flow and unlock order', () => {
     for (let i = 0; i < 5; i++) s = advance(s);
     s = challenge(s);
     s = reducer(s, { type: 'skipBonus', now: 9 });
+    expect(R(s)).toMatchObject({ phase: 'finale', finaleStep: 'return', at: 'highlands' });
+    s = finale(s);
     expect(R(s).phase).toBe('summary');
     expect(R(s).unlocked).not.toContain('hiller');
     expect(P(s).badges).not.toContain('sky-high');
@@ -156,7 +164,7 @@ describe('flow and unlock order', () => {
   it('resetRun starts over but keeps profile badges and best', () => {
     let s = create();
     for (let i = 0; i < 5; i++) s = advance(s);
-    s = reducer(challenge(s), { type: 'skipBonus', now: 9 });
+    s = finale(reducer(challenge(s), { type: 'skipBonus', now: 9 }));
     const badges = P(s).badges;
     s = reducer(s, { type: 'resetRun', now: 50 });
     expect(R(s)).toMatchObject({ phase: 'intro', xp: 0, startedAt: 50 });
@@ -195,7 +203,7 @@ describe('badges', () => {
         if (hint && i === 2) s = reducer(s, { type: 'useHint' });
         s = walk(solve(s));
       }
-      return reducer(challenge(s), { type: 'skipBonus', now: 9 });
+      return finale(reducer(challenge(s), { type: 'skipBonus', now: 9 }));
     };
     expect(P(finish('pro', false)).badges).toEqual(expect.arrayContaining(['no-peeking', 'trailblazer']));
     expect(P(finish('pro', false)).badges).not.toContain('legend');
@@ -228,7 +236,7 @@ describe('difficulty switching', () => {
       if (i === 1) s = reducer(s, { type: 'setDifficulty', difficulty: 'legend' });
       s = walk(solve(s));
     }
-    s = reducer(challenge(s), { type: 'skipBonus', now: 9 });
+    s = finale(reducer(challenge(s), { type: 'skipBonus', now: 9 }));
     expect(R(s).mixed).toBe(true);
     expect(P(s).badges).not.toContain('legend');
     expect(R(parseSave(JSON.stringify({ version: 1, ...s }))).mixed).toBe(true);

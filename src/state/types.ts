@@ -2,7 +2,9 @@ import type { StopId } from '../data/stops';
 import type { HatId } from '../data/hats';
 
 export type Difficulty = 'rookie' | 'pro' | 'legend';
-export type Phase = 'intro' | 'challenge' | 'riddle' | 'travel' | 'walking' | 'summary';
+export type Phase = 'intro' | 'challenge' | 'riddle' | 'travel' | 'walking' | 'finale' | 'summary';
+/** Sub-steps of the `finale` phase. `done` = chest opened, waiting for the player to see the summary. */
+export type FinaleStep = 'return' | 'walking' | 'puzzle' | 'chest' | 'done';
 export type Stars = 1 | 2 | 3;
 export type BadgeId =
   | 'first-clue'
@@ -11,7 +13,8 @@ export type BadgeId =
   | 'star-collector'
   | 'sky-high'
   | 'trailblazer'
-  | 'legend';
+  | 'legend'
+  | 'treasure-finder';
 
 export interface RiddleState {
   tries: number;
@@ -20,10 +23,16 @@ export interface RiddleState {
   firstTry: boolean;
   /** indexes of choices already ruled out */
   wrong: number[];
+  /** timed riddles: epoch ms when the current try runs out (set while the timer is running) */
+  deadlineAt?: number;
+  /** timed riddles: ms left on the current try while the timer is paused (menu open) */
+  remainingMs?: number;
 }
 
 export interface Run {
   phase: Phase;
+  /** only in the `finale` phase */
+  finaleStep?: FinaleStep;
   /** stop the explorer is standing at */
   at: StopId;
   /** stops revealed so far, in order (always a prefix of the stop list) */
@@ -39,6 +48,10 @@ export interface Run {
   finishedAt?: number;
   /** difficulty was changed mid-run, so the Legend badge is not available */
   mixed?: boolean;
+  /** the treasure chest was opened this run (treasure XP paid) */
+  treasure?: boolean;
+  /** this run set a new personal best XP */
+  newBest?: boolean;
 }
 
 export interface Best {
@@ -60,8 +73,10 @@ export interface Profile {
 }
 
 export interface Settings {
-  /** reserved for M4 (sound mute etc.) */
+  /** sound effects off */
   muted: boolean;
+  /** phone vibration on (default true) */
+  haptics: boolean;
 }
 
 export interface GameState {

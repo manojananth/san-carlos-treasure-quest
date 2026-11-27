@@ -5,6 +5,16 @@ import { Avatar } from './Avatar';
 import { MAIN_STOPS } from '../state/rules';
 import { totalStars } from '../state/reducer';
 import type { Profile, Run } from '../state/types';
+import { useGame } from '../state/GameContext';
+import { AudioSettingsSync } from '../audio/AudioSettingsSync';
+
+export const SpeakerIcon = ({ off }: { off: boolean }) => (
+  <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    {off ? <path d="M15.5 9.5l5 5M20.5 9.5l-5 5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+      : <path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />}
+  </svg>
+);
 
 /** XP number that ticks up to its new value (jumps under reduced motion). */
 function XpCounter({ xp }: { xp: number }) {
@@ -50,8 +60,11 @@ const FragIcon = () => (
 );
 
 export function HUD({ profile, run, onMenu }: { profile: Profile; run: Run; onMenu: () => void }) {
+  const { state, dispatch } = useGame();
+  const muted = state.settings.muted;
   return (
     <header className="hud">
+      <AudioSettingsSync />
       <div className="hud-player">
         <Avatar hat={profile.avatar} size={44} />
         <span className="hud-name">{profile.name}</span>
@@ -61,6 +74,9 @@ export function HUD({ profile, run, onMenu }: { profile: Profile; run: Run; onMe
         <div className="pill" role="group" aria-label="Stars"><span className="pill-ico star-ico" aria-hidden="true">★</span><b data-testid="stars">{totalStars(run)}</b></div>
         <div className="pill" role="group" aria-label="Map fragments"><FragIcon /><b data-testid="fragments">{run.fragments.length}/{MAIN_STOPS.length}</b></div>
       </div>
+      <button type="button" className="icon-btn sound-btn" aria-pressed={!muted} aria-label={muted ? 'Sound off' : 'Sound on'} data-testid="sound-toggle" onClick={() => dispatch({ type: 'setMuted', muted: !muted })}>
+        <SpeakerIcon off={muted} />
+      </button>
       <button type="button" className="icon-btn" onClick={onMenu} aria-label="Menu" aria-haspopup="dialog">
         <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
       </button>

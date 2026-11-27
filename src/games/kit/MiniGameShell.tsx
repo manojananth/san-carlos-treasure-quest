@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useCountdown } from './clock';
 import { useReducedMotion } from './useReducedMotion';
 import { feedback } from './feedback';
+import { sfx } from '../../audio/sfx';
 import './kit.css';
 
 export type ShellPhase = 'howto' | 'countdown' | 'play' | 'result';
@@ -39,6 +40,8 @@ const CHEERS: Record<1 | 2 | 3, string> = {
 function Countdown({ paused, onDone }: { paused: boolean; onDone: () => void }) {
   const { remainingMs } = useCountdown(2400, paused, onDone);
   const n = Math.max(1, Math.ceil(remainingMs / 800));
+  useEffect(() => { sfx('tick'); }, [n]);
+  useEffect(() => () => { sfx('go'); }, []);
   return (
     <div className="mg-overlay mg-countdown" aria-live="assertive">
       <span key={n} className="mg-count">{n}</span>

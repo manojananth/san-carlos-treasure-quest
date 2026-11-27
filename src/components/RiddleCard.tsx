@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Sheet } from './Sheet';
 import { sfx } from '../audio/sfx';
 import { buzzCorrect, buzzWrong } from '../audio/haptics';
-import { DIFFICULTY } from '../state/rules';
+import { DIFFICULTY, riddleStartMs } from '../state/rules';
 import type { Riddle } from '../data/riddles';
 import type { Difficulty, RiddleState } from '../state/types';
 
@@ -15,20 +15,26 @@ interface Props {
   onHint: () => void;
   onTimeout: () => void;
   onSkip?: () => void;
+  /** the timer started (`running`) or stopped with `remainingMs` left; lets the run save its clock so a reload resumes it */
+  onClock?: (running: boolean, remainingMs: number) => void;
   /** freezes the countdown and input (e.g. while a menu sheet is open) */
   paused?: boolean;
 }
 
-export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint, onTimeout, onSkip, paused = false }: Props) {
+export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint, onTimeout, onSkip, onClock, paused = false }: Props) {
   const rules = DIFFICULTY[difficulty];
   const tries = state?.tries ?? 0;
   const wrong = state?.wrong ?? [];
   const [good, setGood] = useState<number | null>(null);
   const [msg, setMsg] = useState('');
   const secs = rules.riddleSeconds;
-  const [left, setLeft] = useState(secs ?? 0);
-  // seconds left on the current try; kept in a ref so pausing does not lose the count
-  const remaining = useRef(secs ?? 0);
+  // seconds left on the current try; kept in a ref so pausing does not lose the count.
+  // A reload resumes from the saved deadline (or the paused time) instead of starting over.
+  const remaining = useRef(secs ? riddleStartMs(secs, state, Date.now()) / 1000 : 0);
+  const [left, setLeft] = useState(remaining.current);
+  const clockRef = useRef(onClock);
+  clockRef.current = onClock;
+  const mountedTries = useRef(tries);
   const timeoutRef = useRef(onTimeout);
   timeoutRef.current = onTimeout;
   const answerRef = useRef(onAnswer);
@@ -38,6 +44,8 @@ export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint,
 
   // the timer restarts after every try; running out counts as a wrong try
   useEffect(() => {
+    if (mountedTries.current === tries) return; // first run: keep the resumed time
+    mountedTries.current = tries;
     remaining.current = secs ?? 0;
     setLeft(secs ?? 0);
   }, [secs, tries]);
@@ -46,6 +54,7 @@ export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint,
     if (!secs || good !== null || paused) return;
     const start = remaining.current;
     const t0 = performance.now();
+    clockRef.current?.(true, start * 1000);
     const t = window.setInterval(() => {
       remaining.current = Math.max(0, start - (performance.now() - t0) / 1000);
       if (remaining.current <= 0) {
@@ -61,6 +70,7 @@ export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint,
       // keep the time that ran before a pause or an answer
       remaining.current = Math.max(0, start - (performance.now() - t0) / 1000);
       window.clearInterval(t);
+      clockRef.current?.(false, remaining.current * 1000);
     };
   }, [secs, tries, good, paused]);
 
