@@ -70,14 +70,17 @@ export function tidyBaseMap(map: maplibregl.Map): void {
   if (map.getLayer('building-3d')) map.setPaintProperty('building-3d', 'fill-extrusion-color', '#f3dfb8');
 }
 
-/** Leaves the depot to Hiller bonus leg out of the dashed trail and its casing. */
-const NOT_BONUS_LEG: maplibregl.FilterSpecification = [
-  '!',
-  ['all', ['==', ['get', 'from'], 'depot'], ['==', ['get', 'to'], 'hiller']],
-];
+/**
+ * Fog of war for the trail: only the legs the player has unlocked are drawn.
+ * `legs` are "from>to" keys. (The depot>hiller shortcut is therefore never shown unless it is listed.)
+ */
+export function legFilter(legs: string[]): maplibregl.FilterSpecification {
+  return ['match', ['concat', ['get', 'from'], '>', ['get', 'to']], legs.length ? legs : ['__none__'], true, false];
+}
 
 /** Dashed gold trail with dark casing for every leg + a solid "done" line for the walked part. */
-export function addTrailLayers(map: maplibregl.Map, routes: GeoJSON.FeatureCollection): void {
+export function addTrailLayers(map: maplibregl.Map, routes: GeoJSON.FeatureCollection, legs: string[]): void {
+  const filter = legFilter(legs);
   const before = firstSymbolLayer(map.getStyle());
   if (!map.getSource('routes')) map.addSource('routes', { type: 'geojson', data: routes });
   if (!map.getSource('trail-done')) {
@@ -85,8 +88,8 @@ export function addTrailLayers(map: maplibregl.Map, routes: GeoJSON.FeatureColle
   }
   const width: maplibregl.ExpressionSpecification = ['interpolate', ['exponential', 1.6], ['zoom'], 12, 2.5, 18, 11];
   const casingW: maplibregl.ExpressionSpecification = ['interpolate', ['exponential', 1.6], ['zoom'], 12, 5, 18, 18];
-  map.addLayer({ id: 'trail-casing', type: 'line', source: 'routes', filter: NOT_BONUS_LEG, layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#1B2430', 'line-width': casingW, 'line-opacity': 0.85 } }, before);
-  map.addLayer({ id: 'trail-dash', type: 'line', source: 'routes', filter: NOT_BONUS_LEG, layout: { 'line-join': 'round' }, paint: { 'line-color': '#F2B632', 'line-width': width, 'line-dasharray': [1.2, 1.4] } }, before);
+  map.addLayer({ id: 'trail-casing', type: 'line', source: 'routes', filter, layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#1B2430', 'line-width': casingW, 'line-opacity': 0.85 } }, before);
+  map.addLayer({ id: 'trail-dash', type: 'line', source: 'routes', filter, layout: { 'line-join': 'round' }, paint: { 'line-color': '#F2B632', 'line-width': width, 'line-dasharray': [1.2, 1.4] } }, before);
   map.addLayer({ id: 'trail-done-casing', type: 'line', source: 'trail-done', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#1B2430', 'line-width': casingW } }, before);
   map.addLayer({ id: 'trail-done', type: 'line', source: 'trail-done', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#F2B632', 'line-width': width } }, before);
 }

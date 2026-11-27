@@ -1,4 +1,4 @@
-/** Original kid-explorer sprite: teal backpack, red bandana, safari hat, chunky dark outline. Faces right. */
+/** Original kid-explorer sprite: teal backpack, red bandana, safari hat (tintable via --hat-crown / --hat-brim), chunky dark outline. Faces right. */
 export const EXPLORER_SVG = `
 <svg class="explorer-svg" viewBox="0 0 64 84" width="64" height="84" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <g stroke="#1B2430" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
@@ -24,8 +24,8 @@ export const EXPLORER_SVG = `
     <circle cx="39" cy="23" r="1.9" fill="#1B2430" stroke="none"/>
     <path d="M38 29 Q41 31 44 29" fill="none" stroke-width="2"/>
     <!-- safari hat -->
-    <path d="M17 17 Q34 11 52 17 Q50 22 34 20 Q20 22 17 17 Z" fill="#D9A441"/>
-    <path d="M23 17 Q23 4 35 4 Q46 4 46 17 Q35 14 23 17 Z" fill="#E7C27A"/>
+    <path d="M17 17 Q34 11 52 17 Q50 22 34 20 Q20 22 17 17 Z" style="fill:var(--hat-brim,#D9A441)"/>
+    <path d="M23 17 Q23 4 35 4 Q46 4 46 17 Q35 14 23 17 Z" style="fill:var(--hat-crown,#E7C27A)"/>
     <path d="M23.5 14 Q35 11 45.5 14" fill="none" stroke="#C8372D" stroke-width="3.5"/>
   </g>
 </svg>`;

@@ -1,0 +1,18 @@
+/* shared bits for the ball games. Prefix: sp- */
+.sp-play { display: flex; flex-direction: column; gap: 6px; }
+.sp-hud { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 17px; min-height: 26px; }
+.sp-hud > span { white-space: nowrap; }
+.sp-hud .sp-grow { flex: 1 1 auto; }
+.sp-pips { height: 22px; width: auto; display: block; }
+.sp-bar { flex: 1 1 60px; height: 14px; border: 3px solid var(--ink); border-radius: 10px; background: #fff; overflow: hidden; }
+.sp-bar > i { display: block; height: 100%; width: 100%; background: var(--gold); transform-origin: left center; }
+.sp-msg { font-family: var(--font-display); }
+.sp-focus:focus { outline: none; }
+.sp-ring { fill: none; stroke: var(--gold-dark); stroke-width: 3; stroke-dasharray: 6 4; opacity: 0; pointer-events: none; }
+.sp-focus:focus-visible .sp-ring { opacity: 1; }
+.mg-stage.sp-stage { --mg-stage-max: 56vh; }
+@media (max-height: 520px) {
+  .sp-play { gap: 3px; }
+  .sp-hud { font-size: 15px; min-height: 22px; }
+  .mg-stage.sp-stage { --mg-stage-max: 56vh; }
+}

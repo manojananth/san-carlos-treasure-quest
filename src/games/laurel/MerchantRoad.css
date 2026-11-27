@@ -1,0 +1,49 @@
+/* Merchant Road (laurel). Prefix: lc- */
+.lc-play { display: flex; flex-direction: column; gap: 4px; }
+.lc-row { display: flex; flex-direction: column; gap: 6px; }
+.lc-stage-wrap { min-width: 0; flex: 1 1 auto; }
+.lc-stage { --mg-stage-max: 44vh; cursor: crosshair; }
+.lc-stage:focus { outline: none; }
+.lc-stage:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+.lc-gantry { --mg-stage-max: 30vh; }
+
+.lc-ring { fill: none; stroke: var(--gold); stroke-width: 3.4; opacity: 0; filter: drop-shadow(0 0 0 var(--ink)); paint-order: stroke; }
+.lc-ring.on { opacity: 1; }
+.lc-reticle { opacity: 0; }
+.lc-reticle.on { opacity: 1; }
+.lc-sparkle { animation: lc-glow 1.8s ease-in-out infinite; }
+@keyframes lc-glow { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+[data-paused] .lc-sparkle { animation-play-state: paused; }
+
+.lc-list {
+  list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; justify-content: space-between;
+}
+.lc-list li {
+  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; position: relative;
+  background: #fff; border: 2px solid var(--ink); border-radius: 10px; padding: 2px 2px 1px; font-size: 11px; font-weight: 600; text-transform: capitalize;
+}
+.lc-list li.done { background: #fff1c2; border-color: var(--gold-dark); }
+.lc-list li.done svg { opacity: .45; }
+.lc-list li b { position: absolute; top: 0; right: 4px; color: var(--teal-dark); font: 400 18px var(--font-display); }
+
+.lc-msg { margin: 6px 0 0; text-align: center; font: 400 22px var(--font-display); color: var(--ink); min-height: 28px; }
+.lc-msg.go { color: var(--red); }
+.lc-go { width: 100%; min-height: 64px; font-size: 34px; letter-spacing: .04em; touch-action: manipulation; }
+.lc-lights .lc-row { gap: 4px; }
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .lc-spot .lc-row { flex-direction: row; align-items: stretch; gap: 8px; }
+  .lc-stage { --mg-stage-max: 52vh; }
+  .lc-spot .lc-stage-wrap { flex: 1 1 auto; }
+  .lc-list { flex-direction: column; flex: 0 0 76px; justify-content: space-around; }
+  .lc-list li { flex-direction: row; gap: 4px; padding: 1px 4px; font-size: 11px; }
+  .lc-list li svg { width: 24px; height: 24px; flex: 0 0 auto; }
+  .lc-lights .lc-row { flex-direction: row; align-items: center; gap: 10px; }
+  .lc-gantry { --mg-stage-max: 38vh; }
+  .lc-lights .lc-stage-wrap { flex: 1 1 62%; }
+  .lc-go { width: auto; flex: 0 0 34%; min-height: 96px; font-size: 40px; }
+  .lc-msg { font-size: 18px; margin-top: 2px; min-height: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lc-sparkle { animation: none; opacity: .9; }
+}
