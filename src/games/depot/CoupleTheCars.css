@@ -1,0 +1,29 @@
+/* Couple the cars (depot). Prefix: cc- */
+.cc-play { display: flex; flex-direction: column; gap: 6px; }
+.cc-row { display: flex; flex-direction: column; gap: 6px; }
+.cc-stage-wrap { min-width: 0; flex: 1 1 auto; }
+.cc-clues {
+  background: #fff; border: 3px dashed var(--teal-dark); border-radius: 12px; padding: 6px 12px 6px 10px; font-size: 14px; line-height: 1.3;
+}
+.cc-clues h3 { margin: 0 0 2px; font: 400 16px var(--font-display); color: var(--red); letter-spacing: .02em; }
+.cc-clues ul { margin: 0; padding-left: 18px; }
+.cc-clues li { margin: 1px 0; }
+
+/* stage pieces */
+.cc-slot { fill: rgba(255, 255, 255, .35); stroke: var(--ink); stroke-width: 2; stroke-dasharray: 5 4; }
+.cc-slot.hover { fill: rgba(242, 182, 50, .5); stroke-dasharray: none; }
+.cc-slot.bad { fill: rgba(200, 55, 45, .35); stroke: var(--red); stroke-dasharray: none; }
+.cc-slot.done { fill: none; stroke: none; }
+.cc-ghost { opacity: .3; }
+.cc-badge { font-family: var(--font-display); }
+.cc-car:focus { outline: none; }
+.cc-ring { fill: none; stroke: var(--teal); stroke-width: 3; stroke-dasharray: 6 4; opacity: 0; pointer-events: none; }
+.cc-car:focus-visible .cc-ring { opacity: 1; }
+.cc-car.picked .cc-ring { opacity: 1; stroke: var(--gold-dark); stroke-dasharray: none; }
+.cc-car[aria-disabled='true'] { cursor: default; }
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .cc-row.has-clues { flex-direction: row; align-items: center; gap: 10px; }
+  .cc-row.has-clues .cc-clues { flex: 0 0 38%; font-size: 13px; }
+  .cc-row.has-clues .cc-stage-wrap { flex: 1 1 62%; }
+}

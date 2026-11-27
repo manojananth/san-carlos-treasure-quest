@@ -1,0 +1,52 @@
+/* Mini-game kit (shell, stage, HUD pieces). Class prefix: mg- */
+.mg { user-select: none; -webkit-user-select: none; }
+.mg-body { position: relative; min-height: 250px; outline: none; }
+.mg-content[inert] { pointer-events: none; }
+
+.mg-overlay {
+  position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; padding: 8px; text-align: center; overflow: auto;
+  background: var(--paper); border-radius: 0;
+}
+.mg-countdown { background: rgba(255, 247, 227, .8); }
+.mg-count {
+  font-family: var(--font-display); font-size: 120px; line-height: 1; color: var(--red);
+  -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill; animation: mg-count .8s ease-out both;
+}
+@keyframes mg-count { from { transform: scale(1.8); opacity: 0; } 30% { opacity: 1; } to { transform: scale(.9); } }
+
+.mg-howto { gap: 10px; }
+.mg-diagram svg { display: block; width: min(300px, 80vw); height: auto; }
+.mg-howto-text { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 420px; }
+.mg-goal { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.35; }
+.mg-howto .btn, .mg-result .btn { min-width: 180px; flex: 0 0 auto; }
+.mg-cheer { margin: 0 0 6px; font-weight: 700; font-size: 18px; }
+
+/* time bar + counters row */
+.mg-hud { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-family: var(--font-display); font-size: 17px; }
+.mg-bar { flex: 1 1 auto; height: 16px; border: 3px solid var(--ink); border-radius: 10px; background: #fff; overflow: hidden; }
+.mg-bar-fill { height: 100%; background: var(--gold); transition: width .1s linear; }
+.mg-bar-fill.low { background: var(--red); }
+.mg-hud span { white-space: nowrap; }
+
+.mg-stage {
+  display: block; margin-inline: auto; aspect-ratio: var(--mg-ar, 4 / 3); height: auto;
+  width: min(100%, calc(var(--mg-stage-max, 52vh) * var(--mg-ar, 1.333)));
+  touch-action: none; border: 3px solid var(--ink); border-radius: 16px; background: #fff; overflow: hidden;
+}
+.mg-stage [role='button'] { cursor: grab; outline: none; }
+.mg-stage [role='button']:active { cursor: grabbing; }
+
+@media (max-height: 520px) {
+  .mg-body { min-height: 190px; }
+  .mg-howto { flex-direction: row; gap: 16px; }
+  .mg-goal { font-size: 16px; }
+  .mg-count { font-size: 84px; }
+  .star { font-size: 38px; }
+  .mg-hud { margin-bottom: 4px; font-size: 15px; }
+  .mg-stage { --mg-stage-max: 54vh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mg-count, .mg-result .star.on { animation: none !important; }
+  .mg-bar-fill { transition: none; }
+}
