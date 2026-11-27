@@ -4,7 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import routesJson from '../data/routes.json';
 import { STOPS } from '../data/stops';
 import type { LonLat } from '../data/stops';
-import { STYLE_URL, addTerrain, addTrailLayers, tidyBaseMap } from './style';
+import { STYLE_URL, addTerrain, addTrailLayers, legFilter, tidyBaseMap } from './style';
 import { Explorer, prefersReducedMotion } from './explorer';
 import { cumulative } from './geo';
 
@@ -33,16 +33,27 @@ export type MarkerState = 'locked' | 'unlocked' | 'current' | 'done';
 export interface GameMapHandle {
   /**
    * Walk the explorer from stop index `from` to `to` (consecutive stops).
-   * Resolves true when the leg completed, false when it was interrupted by reset (or could not start).
+   * Resolves true when the leg completed, false when it was interrupted by restore (or could not start).
    */
   walk(from: number, to: number): Promise<boolean>;
-  /** Put explorer at stop `index` and reset camera + done trail to the stops before it. */
-  reset(index: number): void;
+  /**
+   * Put the explorer at stop `at`, redraw the walked trail up to it, and frame the explorer
+   * (plus the newest unlocked stop when it is a different one). No animation.
+   */
+  restore(at: number, newest: number): void;
+  /** Fly to the freshly unlocked stop, pause, then fly back framing the explorer and the stop. */
+  flyToUnlock(stop: number): Promise<void>;
 }
 interface Props {
   states: MarkerState[];
+  /** "from>to" keys of the trail legs that have been unlocked */
+  legs: string[];
+  /** hat colour of the active player */
+  hat: string;
   onReady: () => void;
 }
+
+const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
 /** Wait for the next 'moveend' (or a timeout, in case no move was needed). */
 function moveEnd(map: maplibregl.Map, ms: number): Promise<void> {
@@ -56,6 +67,15 @@ function moveEnd(map: maplibregl.Map, ms: number): Promise<void> {
     timer = window.setTimeout(done, ms);
     map.on('moveend', done);
   });
+}
+
+/** Fit two points in view with the standard padding (flies unless `animate` is false). */
+function frame(map: maplibregl.Map, a: LonLat, b: LonLat, animate: boolean, duration: number) {
+  const bounds: [LonLat, LonLat] = [
+    [Math.min(a[0], b[0]), Math.min(a[1], b[1])],
+    [Math.max(a[0], b[0]), Math.max(a[1], b[1])],
+  ];
+  map.fitBounds(bounds, { ...FIT_OPTIONS, maxZoom: 16.2, animate, duration });
 }
 
 function buildMarkerEl(i: number): HTMLDivElement {
@@ -78,7 +98,7 @@ function buildMarkerEl(i: number): HTMLDivElement {
   return el;
 }
 
-export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ states, onReady }, ref) {
+export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ states, legs, hat, onReady }, ref) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const explorerRef = useRef<Explorer | null>(null);
@@ -89,13 +109,25 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
   const genRef = useRef(0);
   const statesRef = useRef(states);
   statesRef.current = states;
+  const legsRef = useRef(legs);
+  legsRef.current = legs;
+  const hatRef = useRef(hat);
+  hatRef.current = hat;
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
 
   const applyStates = () => {
     markersRef.current.forEach(({ el }, i) => {
+      const next = statesRef.current[i] ?? 'locked';
+      const wasLocked = el.classList.contains('locked');
       el.classList.remove('locked', 'unlocked', 'current', 'done');
-      el.classList.add(statesRef.current[i] ?? 'unlocked');
+      el.classList.add(next);
+      // a stop that appears from the fog gets a little pop (delayed so it lands as the camera arrives)
+      if (wasLocked && next !== 'locked') {
+        el.classList.remove('reveal');
+        void el.offsetWidth;
+        el.classList.add('reveal');
+      }
     });
   };
 
@@ -146,7 +178,7 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
     });
     map.on('style.load', () => {
       addTerrain(map);
-      addTrailLayers(map, ROUTES);
+      addTrailLayers(map, ROUTES, legsRef.current);
       tidyBaseMap(map);
     });
 
@@ -202,6 +234,7 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
     scaleSigns();
 
     explorerRef.current = new Explorer(map, STOPS[0].lonLat);
+    explorerRef.current.setHat(hatRef.current);
 
     let ready = false;
     map.on('idle', () => {
@@ -222,6 +255,13 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
   }, []);
 
   useEffect(applyStates, [states]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.getLayer('trail-dash')) return; // before style.load the layers are created with legsRef
+    const f = legFilter(legs);
+    for (const id of ['trail-casing', 'trail-dash']) if (map.getLayer(id)) map.setFilter(id, f);
+  }, [legs]);
+  useEffect(() => { explorerRef.current?.setHat(hat); }, [hat]);
 
   useImperativeHandle(ref, () => ({
     async walk(from, to) {
@@ -264,17 +304,44 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
       finish();
       return true;
     },
-    reset(index) {
+    restore(at, newest) {
       const map = mapRef.current, ex = explorerRef.current;
       if (!map || !ex) return;
       genRef.current++;
       map.stop();
       ex.stop();
       popupRef.current?.remove();
-      ex.setPosition(STOPS[index].lonLat);
+      ex.setPosition(STOPS[at].lonLat);
       doneRef.current = [];
+      for (let i = 0; i < at; i++) {
+        const leg = legBetween(STOPS[i].id, STOPS[i + 1].id);
+        if (leg) doneRef.current.push(legFeature(leg));
+      }
       setDone();
-      map.fitBounds(STOP_BOUNDS, { ...FIT_OPTIONS, animate: false });
+      if (newest > at) frame(map, STOPS[at].lonLat, STOPS[newest].lonLat, false, 0);
+      else map.jumpTo({ center: STOPS[at].lonLat, zoom: 15.6, pitch: FIT_OPTIONS.pitch, bearing: FIT_OPTIONS.bearing });
+      // portrait: a bottom sheet covers the lower half, so lift the explorer into the upper half
+      if (window.innerHeight > window.innerWidth) map.panBy([0, 110], { animate: false });
+    },
+    async flyToUnlock(stop) {
+      const map = mapRef.current, ex = explorerRef.current;
+      if (!map || !ex) return;
+      const gen = genRef.current;
+      const target = STOPS[stop].lonLat;
+      const from = ex.lngLat;
+      const reduced = prefersReducedMotion();
+      if (reduced) {
+        map.jumpTo({ center: target, zoom: 16, pitch: 62 });
+      } else {
+        const arrived = moveEnd(map, 4500);
+        map.flyTo({ center: target, zoom: 16, pitch: 62, duration: 2000 });
+        await arrived;
+      }
+      if (gen !== genRef.current) return;
+      await sleep(1200);
+      if (gen !== genRef.current) return;
+      frame(map, from, target, !reduced, 1800);
+      if (!reduced) await moveEnd(map, 4000);
     },
   }), []);
 

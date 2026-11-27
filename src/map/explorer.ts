@@ -6,6 +6,7 @@ import { lineString } from '@turf/helpers';
 import type { LonLat } from '../data/stops';
 import { EXPLORER_SVG } from '../components/explorerSvg';
 import { cumulative } from './geo';
+import { shade } from '../data/hats';
 
 // Keep walking time-accurate even when a frame is slow (map redraws can be heavy on weak GPUs).
 gsap.ticker.lagSmoothing(0);
@@ -39,6 +40,12 @@ export class Explorer {
   get lngLat(): LonLat {
     const p = this.marker.getLngLat();
     return [p.lng, p.lat];
+  }
+
+  /** Tint the safari hat with the player's chosen colour. */
+  setHat(color: string) {
+    this.el.style.setProperty('--hat-crown', color);
+    this.el.style.setProperty('--hat-brim', shade(color, 0.22));
   }
 
   setPosition(p: LonLat) {
