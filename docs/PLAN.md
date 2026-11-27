@@ -115,3 +115,44 @@ Riddle and stop content in `src/data/riddles.ts` (3 tiers per stop) and `src/dat
 - Save files with `version > 1` are ignored and never overwritten. An active profile without a valid run is deselected on load.
 - Known gap (accepted for now): the riddle timer restarts from full on reload.
 - Mini-game contract: props (`difficulty`, `timeScale`) are fixed at mount (snapshotted in ChallengeFlow); games must honor `paused`.
+
+---
+
+# Milestone 3 plan — mini-games
+
+## Build order
+1. **Kit + reference game** (one builder): `src/games/kit/` and the Base Camp train game. Sets the pattern.
+2. **Three builders in parallel**, each owning only its game folders: (Laurel + City Hall), (Burton + Highlands),
+   (Big Canyon + Hiller). Nobody but the coordinator edits `registry.ts`, `App.tsx` or `src/state/`.
+3. Review, then cheaper models fix.
+
+## Kit (`src/games/kit/`)
+- `MiniGameShell`: phases `howto → countdown (3-2-1, skipped under reduced motion) → play → result`. How-to card:
+  one-line goal + a small illustrated diagram + "Let's go!" button. Result: 1–3 animated stars, a one-line
+  cheer, "Continue" → `onFinish(stars)`. The shell owns the result screen so games only report a score.
+- `usePausableClock(paused)`: elapsed ms that freezes while `paused`; `useCountdown(totalMs, paused, onEnd)`.
+- `usePointerDrag(ref, {onStart,onMove,onEnd})`: pointer events + `setPointerCapture`, `touch-action: none`;
+  works for mouse, touch and pen.
+- `starsFor(score, [two, three])` helper; `useReducedMotion()`; `Stage` component: responsive SVG stage with a fixed
+  viewBox (e.g. 400×300) so games draw in game units and scale to portrait and landscape.
+- Uses `sfx()` and `buzz()` (still no-ops / short vibrations) at hit, miss, win.
+- Art: original inline SVG in the M1/M2 style (ink outlines, red/teal/gold, chunky shapes). No sprites from
+  outside the repo. Sports stay generic: no league, team or driver names, numbers or logos.
+
+## Game contract
+`ComponentType<ChallengeProps>` (props fixed at mount except `paused`). 20–45 s of play. `timeScale` stretches time
+limits (Rookie 1.3, Legend 0.75); difficulty may also change targets. While `paused`: freeze clocks, animations and
+input. Every game must be winnable by touch alone, keyboard-operable where practical (at minimum the shell buttons),
+and playable under reduced motion (no shaking, no flashing; the reaction game uses a non-flashing light sequence).
+Never fail with 0 stars: a finished attempt earns at least 1.
+
+## Games
+| Stop | Game | Mechanic | Stars |
+|---|---|---|---|
+| depot | Couple the cars | Drag 4–6 shuffled cars (loco, tender, mail, passenger, caboose…) onto rail slots in the right order; cars snap and couple with a clank; numbered or picture hints on Rookie | by time + wrong drops |
+| laurel | Spot 5 + lights out | Part 1: find 5 hidden items (gold coin, compass, old ticket, key, lantern) in an illustrated street scene of shop fronts, awnings, café tables; tap to circle. Part 2: race-car start: 5 red lights come on one by one, go out at a random moment, tap GO; early tap = jump start, retry once | items found × time, plus reaction ms |
+| cityhall | Hall of Scrolls quiz | 5 questions from `src/data/facts.ts` (shuffled, choices shuffled), as unrolling scrolls; timer per question scaled by timeScale | correct answers |
+| burton | Field-goal kick | Drag back from the ball to aim and set power (slingshot); wind arrow on Pro/Legend; ball flies in a 2.5D arc to the uprights; 5 kicks | goals made |
+| bigcanyon | Race up the canyon | Explorer runs up a winding side-scrolling trail; tap/hold to run, tap to jump roots and rocks, collect echo-gems; beat the clock to the summit marker | finish time + stumbles |
+| highlands | Penalty shootout | 5 shots: drag/flick to aim at the goal; the goalie dives with a tell; Legend goalie is quicker | goals scored |
+| hiller (bonus) | Paper-plane glide | Pick launch angle + power; glide over the hangar floor, tap to nudge up (limited); land through rings for points | distance + rings |
