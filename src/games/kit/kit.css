@@ -55,3 +55,4 @@
 .mg[data-input='pointer'] :focus-visible { outline: none !important; }
 .mg[data-input='pointer'] .sp-ring,
 .mg[data-input='pointer'] .cc-car:not(.picked) .cc-ring { opacity: 0 !important; }
+

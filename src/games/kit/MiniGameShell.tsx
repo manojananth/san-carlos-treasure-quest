@@ -72,7 +72,10 @@ export function MiniGameShell({ goal, diagram, paused = false, onFinish, childre
   useEffect(() => {
     const body = bodyRef.current;
     if (!body) return;
-    if (phase === 'play') {
+    if (phase === 'howto') {
+      // games load lazily, so the Sheet's own autofocus may have run before this button existed
+      body.querySelector<HTMLElement>('[data-autofocus]')?.focus({ preventScroll: true });
+    } else if (phase === 'play') {
       (body.querySelector<HTMLElement>('[data-game-focus]') ?? body).focus({ preventScroll: true });
     } else if (phase === 'result') {
       body.querySelector<HTMLElement>('[data-autofocus]')?.focus({ preventScroll: true });

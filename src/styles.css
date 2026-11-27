@@ -378,3 +378,6 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--teal); outl
   .toast { font-size: 16px; padding: 4px 12px; }
   .debug-skip { top: auto; bottom: 8px; right: 70px; }
 }
+
+/* Suspense fallback while a lazily-loaded mini-game downloads */
+.mg-loading { display: grid; place-items: center; min-height: 220px; font-family: 'Lilita One', system-ui, sans-serif; font-size: 1.25rem; color: var(--ink, #1d1b26); opacity: 0.75; }
