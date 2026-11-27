@@ -156,3 +156,31 @@ Never fail with 0 stars: a finished attempt earns at least 1.
 | bigcanyon | Race up the canyon | Explorer runs up a winding side-scrolling trail; tap/hold to run, tap to jump roots and rocks, collect echo-gems; beat the clock to the summit marker | finish time + stumbles |
 | highlands | Penalty shootout | 5 shots: drag/flick to aim at the goal; the goalie dives with a tell; Legend goalie is quicker | goals scored |
 | hiller (bonus) | Paper-plane glide | Pick launch angle + power; glide over the hangar floor, tap to nudge up (limited); land through rings for points | distance + rings |
+
+---
+
+# Milestone 4 plan — finale, sound, polish, deploy
+
+## Finale (builder A)
+- New run phase `finale` after Summit Outpost (bonus skipped) or after Sky Hangar. Flow: "Return to Base Camp" card →
+  explorer walks back to the depot along prebuilt legs `highlands>depot` and `hiller>depot` (add to
+  `scripts/build-routes.ts`, regenerate `routes.json`) → **fragment puzzle**: the 6 collected fragments are pieces of
+  an original illustrated treasure map of San Carlos (hills west, Bay east, the six stops as icons, a red X by the
+  depot). Drag each piece (kit `usePointerDrag`) into a 3×2 frame; pieces snap when within tolerance; keyboard
+  path like Base Camp → **chest**: an original SVG chest by the depot; lid opens (GSAP), gold coins burst out and
+  arc into a pile, confetti → **final summary**: XP, stars, badges earned, best-ever marker, Play again.
+- Treasure XP bonus: +100 × multiplier, awarded once per run. New badge **Treasure Finder** (open the chest).
+- Reduced motion: no confetti or coin burst; lid simply opens and a coin pile fades in.
+- Fix the M2 known gap: persist `deadlineAt` for timed riddles so a reload no longer resets the timer.
+
+## Sound & polish (builder B)
+- Howler.js. Original sound effects synthesised at build time by `scripts/make-sfx.ts` (oscillators + envelopes +
+  noise, written as small mono WAVs to `public/sfx/`, committed) — no downloaded audio. Names: the existing
+  `SfxName` list plus `clank`, `whoosh`, `kick`, `cheer`, `chest`, `coins`, `tick`, `go`.
+- `sfx(name)` plays through one Howler sprite or individual Howls, lazy-unlocked on first user gesture
+  (iOS), respects mute, never throws. Mute toggle button in the HUD (speaker icon, aria-pressed) and in the menu,
+  stored in `settings.muted` via a new `setMuted` action.
+- Haptics: audit `buzz()` patterns (short tap 10 ms, success [20,40,20], fail 60); skip when muted? No — haptics
+  follow a separate "Vibration" toggle in the menu (default on), stored in `settings.haptics`.
+- Reduced-motion audit across the whole app (map flights, walks, XP ticker, toasts, sheets, all games, finale).
+- README: how to play, controls, credits/attributions, dev scripts.
