@@ -58,3 +58,51 @@ Legs: 1→2→3→4→5→6, then the bonus leg 6→7 (or 1→7 when the bonus i
 - `prefers-reduced-motion`: no camera flights (jumpTo), explorer teleports, no confetti.
 - Sports stay generic: no leagues, teams, drivers, or logos.
 - No API keys anywhere.
+
+---
+
+# Milestone 2 plan — riddle flow, XP, save/load
+
+## Player loop
+Profile pick → (new run) story intro at Base Camp → **stop challenge** (M2: placeholder mini-game; M3 replaces) →
+earn stars (1–3) + a map fragment → **riddle** for the next stop (3 choices, hint costs XP) → correct answer lifts the
+fog: marker + trail leg appear, camera flies to it, then flies back → **Walk** → arrive → challenge … After Summit
+Outpost: optional bonus riddle for Sky Hangar, or go to the finale (M4; M2 shows a run-summary card).
+
+## State (src/state/)
+- `types.ts`: Difficulty `'rookie'|'pro'|'legend'`; `Profile {id,name,avatar,difficulty,run,best,badges,createdAt}`;
+  `Run {phase, at, unlocked: StopId[], riddles: Record<StopId,{tries,hinted,firstTry}>, stars: Partial<Record<StopId,1|2|3>>,
+  fragments: StopId[], xp, startedAt, finishedAt?}`; `phase: 'intro'|'challenge'|'riddle'|'travel'|'walking'|'summary'`.
+- `reducer.ts`: pure reducer + action types (selectProfile, createProfile, deleteProfile, setDifficulty, startRun,
+  finishChallenge(stars), answerRiddle(choice), useHint, arrive, skipBonus, resetRun). XP and badge rules live here.
+- `storage.ts`: localStorage key `scq.save.v1`, `{version:1, profiles[≤4], activeId, settings}`; every access wrapped in
+  try/catch; schema-checked load with fallback to fresh; saved after every action (debounced 200 ms).
+- `GameContext.tsx`: provider with useReducer + persistence.
+- Unit tests with Vitest for the reducer (XP math, hint cost, unlock order, badges, 4-profile cap, load of corrupt data).
+
+## Rules
+| | Rookie | Pro | Legend |
+|---|---|---|---|
+| riddle text tier | easy | medium | hard |
+| riddle timer | none | 60 s | 35 s (expiry = counts as a wrong try) |
+| hint cost | 5 XP | 10 XP | 20 XP |
+| XP multiplier | 1.0 | 1.25 | 1.5 |
+| mini-game `timeScale` (for M3) | 1.3 | 1.0 | 0.75 |
+Riddle XP: 30 first try, 15 second, 5 after; wrong choice greys out. Challenge: stars × 20 XP. Never below 0 XP.
+Badges: First Clue, Sharp Mind (3 first-try riddles in one run), No Peeking (finish main stops with no hints),
+Star Collector (≥15 stars in a run), Sky High (bonus stop), Trailblazer (finish a run), Legend of San Carlos
+(finish on Legend). Badges persist on the profile.
+
+## Map changes (GameMap)
+- Locked markers are hidden (display none), and trail legs to locked stops are filtered out of the trail layers.
+- `flyTo(stopIndex)` → `Promise`, uses `map.flyTo` (zoom 16, pitch 62); reduced motion → `jumpTo`.
+- Arrival is driven by app state; the M1 "Walk to next stop"/Reset dev controls go away (Reset moves into the menu).
+
+## UI (React, mobile-first)
+ProfileScreen (≤4 cards with avatar + name + XP, create with name + pick one of 6 hat colours, delete with confirm),
+HUD (avatar, XP counter that ticks with GSAP, star total, fragments x/6, menu button), StoryCard, StopCard
+(arrival + "Start challenge"), PlaceholderChallenge (tap 10 gold coins before time runs out; stars by time; uses
+timeScale), RiddleCard (question, 3 big choices, hint button showing cost, timer bar), UnlockToast,
+SummaryCard, Menu sheet (difficulty, badges, leaderboard, switch player, restart run), Leaderboard (profiles on
+this device by best XP, stars, badges). Focus management + Esc closes sheets; all buttons ≥ 44 px.
+Riddle and stop content in `src/data/riddles.ts` (3 tiers per stop) and `src/data/facts.ts` (for the M3 quiz).
