@@ -18,19 +18,20 @@ function XpCounter({ xp }: { xp: number }) {
     const delta = xp - shown.current;
     if (delta === 0) { el.textContent = String(xp); return; }
     setGain(delta);
+    let tw: gsap.core.Tween | undefined;
     const t = window.setTimeout(() => setGain(null), 1800);
     if (prefersReducedMotion()) {
       shown.current = xp;
       el.textContent = String(xp);
     } else {
       const o = { v: shown.current };
-      gsap.to(o, {
+      tw = gsap.to(o, {
         v: xp, duration: Math.min(1.2, 0.3 + Math.abs(delta) / 80), ease: 'power2.out',
         onUpdate: () => { shown.current = Math.round(o.v); el.textContent = String(shown.current); },
         onComplete: () => { shown.current = xp; el.textContent = String(xp); },
       });
     }
-    return () => window.clearTimeout(t);
+    return () => { window.clearTimeout(t); tw?.kill(); };
   }, [xp]);
 
   return (

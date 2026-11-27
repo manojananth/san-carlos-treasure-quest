@@ -6,4 +6,6 @@ export interface ChallengeProps {
   timeScale: number;
   /** call once with the result; the shell closes the challenge afterwards */
   onFinish: (stars: 1 | 2 | 3) => void;
+  /** Props are fixed at mount except `paused`; games must freeze timers and input while paused. */
+  paused?: boolean;
 }

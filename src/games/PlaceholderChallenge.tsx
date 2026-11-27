@@ -10,15 +10,18 @@ type Spot = { x: number; y: number; id: number };
 const randSpot = (id: number): Spot => ({ x: 10 + Math.random() * 80, y: 14 + Math.random() * 72, id });
 
 /** Tap 10 gold coins before time runs out. Generic stand-in until each stop gets its own mini-game (M3). */
-export function PlaceholderChallenge({ timeScale, onFinish }: ChallengeProps) {
+export function PlaceholderChallenge({ timeScale, onFinish, paused = false }: ChallengeProps) {
   const total = BASE_SECONDS * timeScale;
   const [got, setGot] = useState(0);
   const [left, setLeft] = useState(total);
   const [spot, setSpot] = useState<Spot>(() => randSpot(0));
   const [result, setResult] = useState<1 | 2 | 3 | null>(null);
-  const startedAt = useRef(performance.now());
+  // seconds of play so far; only advances while not paused
+  const elapsed = useRef(0);
   const doneRef = useRef(false);
   const gotRef = useRef(0);
+  // when the tapped coin had keyboard focus, keep focus on the next coin
+  const keepFocus = useRef(false);
 
   const finish = useCallback((collected: number, remaining: number) => {
     if (doneRef.current) return;
@@ -30,33 +33,44 @@ export function PlaceholderChallenge({ timeScale, onFinish }: ChallengeProps) {
     sfx(collected >= COINS ? 'fanfare' : 'wrong');
   }, [total]);
 
+  // the clock stops while paused and resumes from where it left off
   useEffect(() => {
+    if (paused) return;
+    let last = performance.now();
     const t = window.setInterval(() => {
       if (doneRef.current) return;
-      const remaining = Math.max(0, total - (performance.now() - startedAt.current) / 1000);
+      const now = performance.now();
+      elapsed.current += (now - last) / 1000;
+      last = now;
+      const remaining = Math.max(0, total - elapsed.current);
       setLeft(remaining);
       if (remaining <= 0) finish(gotRef.current, 0);
     }, 100);
-    return () => window.clearInterval(t);
-  }, [total, finish]);
+    return () => {
+      // count the slice that ran before the pause
+      elapsed.current += (performance.now() - last) / 1000;
+      window.clearInterval(t);
+    };
+  }, [total, finish, paused]);
 
   // a missed coin hops somewhere else after a moment, so you cannot just wait
   useEffect(() => {
-    if (result) return;
+    if (result || paused) return;
     const t = window.setTimeout(() => setSpot((s) => randSpot(s.id + 1)), 1900 * timeScale);
     return () => window.clearTimeout(t);
-  }, [spot.id, result, timeScale]);
+  }, [spot.id, result, timeScale, paused]);
 
   const tap = (e: React.PointerEvent) => {
     e.preventDefault();
-    if (doneRef.current) return;
+    if (doneRef.current || paused) return;
+    keepFocus.current = document.activeElement === e.currentTarget;
     const n = gotRef.current + 1;
     gotRef.current = n;
     setGot(n);
     sfx('coin');
     buzz(15);
     if (n >= COINS) {
-      const remaining = Math.max(0, total - (performance.now() - startedAt.current) / 1000);
+      const remaining = Math.max(0, total - elapsed.current);
       setLeft(remaining);
       finish(n, remaining);
     } else {
@@ -80,6 +94,8 @@ export function PlaceholderChallenge({ timeScale, onFinish }: ChallengeProps) {
             type="button"
             className="coin"
             style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
+            autoFocus={keepFocus.current}
+            disabled={paused}
             onPointerDown={tap}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(e as unknown as React.PointerEvent); } }}
             aria-label="Gold coin, tap it"

@@ -15,15 +15,20 @@ interface Props {
   onHint: () => void;
   onTimeout: () => void;
   onSkip?: () => void;
+  /** freezes the countdown and input (e.g. while a menu sheet is open) */
+  paused?: boolean;
 }
 
-export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint, onTimeout, onSkip }: Props) {
+export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint, onTimeout, onSkip, paused = false }: Props) {
   const rules = DIFFICULTY[difficulty];
   const tries = state?.tries ?? 0;
   const wrong = state?.wrong ?? [];
   const [good, setGood] = useState<number | null>(null);
   const [msg, setMsg] = useState('');
-  const [left, setLeft] = useState(rules.riddleSeconds ?? 0);
+  const secs = rules.riddleSeconds;
+  const [left, setLeft] = useState(secs ?? 0);
+  // seconds left on the current try; kept in a ref so pausing does not lose the count
+  const remaining = useRef(secs ?? 0);
   const timeoutRef = useRef(onTimeout);
   timeoutRef.current = onTimeout;
   const answerRef = useRef(onAnswer);
@@ -32,23 +37,32 @@ export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint,
   useEffect(() => () => { mounted.current = false; }, []);
 
   // the timer restarts after every try; running out counts as a wrong try
-  const secs = rules.riddleSeconds;
   useEffect(() => {
-    if (!secs || good !== null) return;
+    remaining.current = secs ?? 0;
+    setLeft(secs ?? 0);
+  }, [secs, tries]);
+
+  useEffect(() => {
+    if (!secs || good !== null || paused) return;
+    const start = remaining.current;
     const t0 = performance.now();
-    setLeft(secs);
     const t = window.setInterval(() => {
-      const remaining = secs - (performance.now() - t0) / 1000;
-      if (remaining <= 0) {
+      remaining.current = Math.max(0, start - (performance.now() - t0) / 1000);
+      if (remaining.current <= 0) {
         window.clearInterval(t);
+        setLeft(0);
         setMsg("Time's up! Try again.");
         buzzWrong();
         sfx('wrong');
         timeoutRef.current();
-      } else setLeft(remaining);
+      } else setLeft(remaining.current);
     }, 200);
-    return () => window.clearInterval(t);
-  }, [secs, tries, good]);
+    return () => {
+      // keep the time that ran before a pause or an answer
+      remaining.current = Math.max(0, start - (performance.now() - t0) / 1000);
+      window.clearInterval(t);
+    };
+  }, [secs, tries, good, paused]);
 
   const pick = (i: number) => {
     if (good !== null || wrong.includes(i)) return;
@@ -63,6 +77,8 @@ export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint,
       buzzWrong();
       sfx('wrong');
       onAnswer(i);
+      // the picked button is about to become disabled and drop focus; move it to a remaining choice
+      requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.riddle .choice:not([disabled])')?.focus());
     }
   };
 
@@ -90,7 +106,7 @@ export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint,
             key={c}
             type="button"
             className={`choice${wrong.includes(i) ? ' wrong' : ''}${good === i ? ' right' : ''}`}
-            disabled={wrong.includes(i) || (good !== null && good !== i)}
+            disabled={paused || wrong.includes(i) || (good !== null && good !== i)}
             aria-disabled={wrong.includes(i) || undefined}
             onClick={() => pick(i)}
             data-autofocus={i === 0 ? '' : undefined}

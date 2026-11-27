@@ -143,6 +143,7 @@ body {
 
 .maplibregl-ctrl-top-left { top: 68px; }
 .maplibregl-ctrl-bottom-right { bottom: 150px; }
+.app:has(.backdrop) .maplibregl-ctrl-bottom-right { display: none; }
 .maplibregl-ctrl-group button { width: 44px; height: 44px; }
 @media (max-width: 480px) { .maplibregl-ctrl-bottom-right { bottom: 168px; } }
 @media (max-height: 480px) { .maplibregl-ctrl-bottom-right { bottom: 0; } }
@@ -332,7 +333,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--teal); outl
 .star.on:nth-child(2) { animation-delay: .15s; }
 .star.on:nth-child(3) { animation-delay: .3s; }
 @keyframes star-pop { from { transform: scale(0) rotate(-40deg); } }
-.game-result .btn { min-width: 180px; }
+.game-result .btn { min-width: 180px; flex: 0 0 auto; }
 @media (max-height: 520px) { .star { font-size: 38px; } .game-field { height: clamp(150px, 46vh, 220px); } .coin { width: 56px; height: 56px; margin: -28px 0 0 -28px; } }
 
 /* ---- summary / menu / leaderboard ---- */

@@ -17,7 +17,7 @@ export function MenuSheet({ profile, onClose, onDifficulty, onLeaderboard, onSwi
   return (
     <Sheet title="Menu" heading={<>Explorer <span>menu</span></>} onClose={onClose} className="menu">
       <fieldset className="field">
-        <legend>Difficulty (applies to the next riddle)</legend>
+        <legend>Difficulty (changes the riddle and timer right away)</legend>
         <div className="diffs" role="radiogroup" aria-label="Difficulty">
           {DIFFICULTIES.map((d) => (
             <button key={d} type="button" role="radio" aria-checked={profile.difficulty === d} className={`diff${profile.difficulty === d ? ' on' : ''}`} onClick={() => onDifficulty(d)} data-autofocus={profile.difficulty === d ? '' : undefined}>
