@@ -44,19 +44,47 @@ function get(name: SfxName): Howl | null {
   return h;
 }
 
-/** Browsers (iOS especially) only start audio after a user gesture: resume the context on the first one. */
+/**
+ * iOS/iPadOS mute Web Audio when the ring/silent switch is on silent. Declaring a "playback" audio session
+ * (Safari 17+) makes game sounds behave like media instead, so they play with the switch on silent.
+ */
+function claimPlaybackSession() {
+  try {
+    const nav = navigator as Navigator & { audioSession?: { type: string } };
+    if (nav.audioSession && nav.audioSession.type !== 'playback') nav.audioSession.type = 'playback';
+  } catch { /* not supported */ }
+}
+
+/** True once the Web Audio context is actually running (sound can be heard). */
+export const audioReady = (): boolean => { try { return Howler.ctx?.state === 'running'; } catch { return false; } };
+
+/**
+ * Browsers only start audio inside a real user gesture. Safari counts `touchend`/`click`/`keydown` but not
+ * `pointerdown`/`touchstart`, and a resume can fail, so keep listening on every gesture until the context is
+ * running. Inside the gesture we resume the context and play a 1-sample silent buffer, which is what iOS needs.
+ */
 function hookUnlock() {
   if (unlockHooked || !enabled) return;
   unlockHooked = true;
+  claimPlaybackSession();
+  const events = ['touchend', 'click', 'keydown'] as const;
   const go = () => {
-    try { const ctx = Howler.ctx; if (ctx && ctx.state !== 'running') void ctx.resume(); } catch { /* ignore */ }
-    window.removeEventListener('pointerdown', go, true);
-    window.removeEventListener('keydown', go, true);
-    window.removeEventListener('touchend', go, true);
+    claimPlaybackSession();
+    try {
+      // touching Howler.ctx creates the shared context on first use (via a Howl) — make sure one exists
+      if (!Howler.ctx) get('tap');
+      const ctx = Howler.ctx;
+      if (ctx) {
+        if (ctx.state !== 'running') void ctx.resume().catch(() => {});
+        const src = ctx.createBufferSource();
+        src.buffer = ctx.createBuffer(1, 1, 22050);
+        src.connect(ctx.destination);
+        src.start(0);
+      }
+    } catch { /* ignore and retry on the next gesture */ }
+    if (audioReady()) events.forEach((e) => window.removeEventListener(e, go, true));
   };
-  window.addEventListener('pointerdown', go, true);
-  window.addEventListener('keydown', go, true);
-  window.addEventListener('touchend', go, true);
+  events.forEach((e) => window.addEventListener(e, go, true));
 }
 hookUnlock();
 

@@ -1,3 +1,4 @@
+import { AudioSettingsSync } from './audio/AudioSettingsSync';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GameMap } from './map/GameMap';
 import type { GameMapHandle, MarkerState } from './map/GameMap';
@@ -162,6 +163,7 @@ function Game() {
 
   return (
     <div className="app">
+      <AudioSettingsSync />
       <GameMap ref={mapRef} states={states} legs={legs} hat={hat} onReady={() => setReady(true)} />
 
       {!ready && (

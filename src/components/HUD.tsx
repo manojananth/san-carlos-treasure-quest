@@ -6,7 +6,6 @@ import { MAIN_STOPS } from '../state/rules';
 import { totalStars } from '../state/reducer';
 import type { Profile, Run } from '../state/types';
 import { useGame } from '../state/GameContext';
-import { AudioSettingsSync } from '../audio/AudioSettingsSync';
 
 export const SpeakerIcon = ({ off }: { off: boolean }) => (
   <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
@@ -64,7 +63,6 @@ export function HUD({ profile, run, onMenu }: { profile: Profile; run: Run; onMe
   const muted = state.settings.muted;
   return (
     <header className="hud">
-      <AudioSettingsSync />
       <div className="hud-player">
         <Avatar hat={profile.avatar} size={44} />
         <span className="hud-name">{profile.name}</span>
