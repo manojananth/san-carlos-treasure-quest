@@ -7,6 +7,8 @@ import type { LonLat } from '../data/stops';
 import { STYLE_URL, addTerrain, addTrailLayers, legFilter, tidyBaseMap } from './style';
 import { Explorer, prefersReducedMotion } from './explorer';
 import { cumulative } from './geo';
+import { sfx } from '../audio/sfx';
+
 
 type Leg = { from: string; to: string; coords: LonLat[]; lengthM: number };
 const ROUTES = routesJson as unknown as GeoJSON.FeatureCollection<GeoJSON.LineString>;
@@ -39,8 +41,9 @@ export interface GameMapHandle {
   /**
    * Put the explorer at stop `at`, redraw the walked trail up to it, and frame the explorer
    * (plus the newest unlocked stop when it is a different one). No animation.
+   * With `allWalked` every leg currently shown is drawn as walked (e.g. back at Base Camp after the finale walk).
    */
-  restore(at: number, newest: number): void;
+  restore(at: number, newest: number, allWalked?: boolean): void;
   /** Fly to the freshly unlocked stop, pause, then fly back framing the explorer and the stop. */
   flyToUnlock(stop: number): Promise<void>;
 }
@@ -287,8 +290,11 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
       if (gen !== genRef.current) return false; // reset happened while the camera was moving
 
       let lastDraw = -Infinity;
+      let lastStep = 0;
       const ok = await ex.walk(leg.coords, (p, travelled) => {
         map.jumpTo({ center: p });
+        // a footstep about every 40 m (sfx itself throttles repeats)
+        if (travelled - lastStep >= 40) { lastStep = travelled; sfx('step'); }
         // draw the walked part of this leg solid, at most every 100 ms (always on the final frame)
         const now = performance.now();
         const final = travelled >= totalM;
@@ -304,7 +310,7 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
       finish();
       return true;
     },
-    restore(at, newest) {
+    restore(at, newest, allWalked = false) {
       const map = mapRef.current, ex = explorerRef.current;
       if (!map || !ex) return;
       genRef.current++;
@@ -313,9 +319,17 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
       popupRef.current?.remove();
       ex.setPosition(STOPS[at].lonLat);
       doneRef.current = [];
-      for (let i = 0; i < at; i++) {
-        const leg = legBetween(STOPS[i].id, STOPS[i + 1].id);
-        if (leg) doneRef.current.push(legFeature(leg));
+      if (allWalked) {
+        for (const key of legsRef.current) {
+          const [a, b] = key.split('>');
+          const leg = legBetween(a, b);
+          if (leg) doneRef.current.push(legFeature(leg));
+        }
+      } else {
+        for (let i = 0; i < at; i++) {
+          const leg = legBetween(STOPS[i].id, STOPS[i + 1].id);
+          if (leg) doneRef.current.push(legFeature(leg));
+        }
       }
       setDone();
       if (newest > at) frame(map, STOPS[at].lonLat, STOPS[newest].lonLat, false, 0);
@@ -334,6 +348,7 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
         map.jumpTo({ center: target, zoom: 16, pitch: 62 });
       } else {
         const arrived = moveEnd(map, 4500);
+        sfx('whoosh');
         map.flyTo({ center: target, zoom: 16, pitch: 62, duration: 2000 });
         await arrived;
       }

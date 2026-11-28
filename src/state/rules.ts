@@ -29,6 +29,8 @@ export const BONUS_STOP: StopId = 'hiller';
 /** Flat bonus XP for finishing the bonus stop (before the difficulty multiplier). */
 export const BONUS_XP = 40;
 export const STAR_XP = 20;
+/** Treasure chest bonus (before the difficulty multiplier), paid once per run. */
+export const TREASURE_XP = 100;
 export const SHARP_MIND_COUNT = 3;
 export const STAR_COLLECTOR_COUNT = 15;
 
@@ -40,9 +42,24 @@ export const BADGES: { id: BadgeId; name: string; desc: string }[] = [
   { id: 'sky-high', name: 'Sky High', desc: 'Visit the bonus stop, Sky Hangar.' },
   { id: 'trailblazer', name: 'Trailblazer', desc: 'Finish a whole run.' },
   { id: 'legend', name: 'Legend of San Carlos', desc: 'Finish a run on Legend.' },
+  { id: 'treasure-finder', name: 'Treasure Finder', desc: "Open the railroad worker's chest." },
 ];
 export const badgeName = (id: BadgeId) => BADGES.find((b) => b.id === id)?.name ?? id;
 
 export const riddleXp = (tries: number, mult: number) => Math.round((tries === 0 ? 30 : tries === 1 ? 15 : 5) * mult);
 export const challengeXp = (stars: number, mult: number) => Math.round(stars * STAR_XP * mult);
 export const bonusXp = (mult: number) => Math.round(BONUS_XP * mult);
+export const treasureXp = (mult: number) => Math.round(TREASURE_XP * mult);
+
+/** A reloaded timed riddle never restarts from full, but always gets at least this long. */
+export const RIDDLE_MIN_RESUME_MS = 5000;
+/**
+ * Milliseconds on the clock when a timed riddle (re)appears. Running timer: until its saved deadline; paused timer:
+ * what was left; none saved: the full time. Clamped to [RIDDLE_MIN_RESUME_MS, full] so a long absence is not punished.
+ */
+export function riddleStartMs(fullSeconds: number, saved: { deadlineAt?: number; remainingMs?: number } | undefined, now: number): number {
+  const full = fullSeconds * 1000;
+  const left = saved?.deadlineAt !== undefined ? saved.deadlineAt - now : saved?.remainingMs;
+  if (left === undefined) return full;
+  return Math.min(full, Math.max(Math.min(RIDDLE_MIN_RESUME_MS, full), left));
+}

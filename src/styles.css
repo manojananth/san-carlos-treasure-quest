@@ -197,15 +197,18 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--teal); outl
   display: grid; place-items: center; width: 48px; height: 48px; flex: none; color: var(--ink); background: var(--gold);
   border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 3px 0 var(--ink); cursor: pointer; touch-action: manipulation;
 }
+.icon-btn[aria-pressed="false"] { background: #d9d2c2; }
 .icon-btn.small { width: 44px; height: 44px; background: #fff; box-shadow: 0 3px 0 var(--ink); }
 .icon-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
 .avatar { display: block; flex: none; }
 @media (max-width: 480px) {
-  .hud { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .hud { gap: 5px; padding-left: 6px; padding-right: 6px; }
   .hud-name { display: none; }
   .hud-player { padding: 0; min-width: 50px; justify-content: center; }
   .pill { padding: 0 7px; font-size: 17px; gap: 4px; }
-  .icon-btn { width: 46px; height: 46px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .hud-stats { gap: 4px; }
+  .hud-player { min-width: 48px; }
 }
 
 /* ---- toasts ---- */
@@ -381,3 +384,21 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--teal); outl
 
 /* Suspense fallback while a lazily-loaded mini-game downloads */
 .mg-loading { display: grid; place-items: center; min-height: 220px; font-family: 'Lilita One', system-ui, sans-serif; font-size: 1.25rem; color: var(--ink, #1d1b26); opacity: 0.75; }
+
+/* ---- sound / vibration switches (menu) ---- */
+.switches { display: grid; gap: 8px; }
+.switch {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 6px 12px;
+  font: inherit; font-weight: 700; color: var(--ink); background: #fff; border: 3px solid var(--ink); border-radius: 14px;
+  box-shadow: 0 3px 0 var(--ink); cursor: pointer; touch-action: manipulation; text-align: left;
+}
+.switch i { position: relative; flex: none; width: 52px; height: 28px; border: 3px solid var(--ink); border-radius: 999px; background: #cfc8b8; transition: background .15s; }
+.switch i::after { content: ''; position: absolute; top: 1px; left: 1px; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid var(--ink); transition: transform .15s; }
+.switch.on i { background: var(--teal); }
+.switch.on i::after { transform: translateX(24px); }
+
+/* ---- reduced motion safety net: keep state changes, drop the movement ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  .spinner { animation-duration: 3s !important; animation-iteration-count: infinite !important; }
+}

@@ -8,6 +8,7 @@ import { GOLD, GOLD_DARK, GRASS, GRASS_DARK, INK, PAPER, RED, TEAL, TEAL_DARK, c
 import { BALL_R, BAR_H, HALF_GAP, MAX_YAW, POST_TOP, px, py, scaleAt, simulate } from '../sports/kick';
 import type { KickOutcome } from '../sports/kick';
 import { useConfetti } from '../sports/confetti';
+import { sfx } from '../../audio/sfx';
 import { Pips } from '../sports/Pips';
 import '../sports/sports.css';
 import './FieldGoal.css';
@@ -167,6 +168,7 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
     setCharging(false);
     killTweensOf(chargeObj.current);
     setStatus('Kick!');
+    sfx('kick');
     const dur = clamp(sim.tEnd * 0.8, 0.8, 1.7);
     behindRef.current = false;
     setBehind(false);

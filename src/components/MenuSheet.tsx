@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Sheet } from './Sheet';
 import { BADGES, DIFFICULTIES, DIFFICULTY } from '../state/rules';
 import type { Difficulty, Profile } from '../state/types';
+import { useGame } from '../state/GameContext';
+import { sfx } from '../audio/sfx';
+import { buzzTap } from '../audio/haptics';
 
 interface Props {
   profile: Profile;
@@ -14,6 +17,8 @@ interface Props {
 
 export function MenuSheet({ profile, onClose, onDifficulty, onLeaderboard, onSwitch, onRestart }: Props) {
   const [confirm, setConfirm] = useState(false);
+  const { state, dispatch } = useGame();
+  const { muted, haptics } = state.settings;
   return (
     <Sheet title="Menu" heading={<>Explorer <span>menu</span></>} onClose={onClose} className="menu">
       <fieldset className="field">
@@ -26,6 +31,18 @@ export function MenuSheet({ profile, onClose, onDifficulty, onLeaderboard, onSwi
           ))}
         </div>
       </fieldset>
+
+      <div className="field switches">
+        <span className="legend">Sound &amp; touch</span>
+        <button type="button" role="switch" aria-checked={!muted} className={`switch${muted ? '' : ' on'}`} data-testid="switch-sound"
+          onClick={() => { dispatch({ type: 'setMuted', muted: !muted }); if (muted) setTimeout(() => sfx('correct'), 30); }}>
+          <span>Sound</span><i aria-hidden="true" />
+        </button>
+        <button type="button" role="switch" aria-checked={haptics} className={`switch${haptics ? ' on' : ''}`} data-testid="switch-haptics"
+          onClick={() => { dispatch({ type: 'setHaptics', haptics: !haptics }); if (!haptics) setTimeout(buzzTap, 30); }}>
+          <span>Vibration</span><i aria-hidden="true" />
+        </button>
+      </div>
 
       <div className="field">
         <span className="legend">Badges</span>

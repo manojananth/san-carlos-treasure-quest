@@ -27,6 +27,8 @@ const SEEDS: StopSeed[] = [
 const LEGS: [string, string][] = [
   ['depot', 'laurel'], ['laurel', 'cityhall'], ['cityhall', 'burton'], ['burton', 'bigcanyon'],
   ['bigcanyon', 'highlands'], ['highlands', 'hiller'], ['depot', 'hiller'],
+  // finale: the walk back to Base Camp (directed legs; the trail filter keys on "from>to")
+  ['highlands', 'depot'], ['hiller', 'depot'],
 ];
 const Z = 14;
 const MARGIN = 0.012; // degrees
@@ -398,7 +400,7 @@ async function main() {
     const ratio = len / straight;
     console.log(`leg ${from} -> ${to}: ${len.toFixed(0)} m (straight ${straight.toFixed(0)} m, x${ratio.toFixed(2)}, ${pts.length} pts)`);
     const maxRatio = straight < 1000 ? 2.2 : 3;
-    if (ratio >= maxRatio && !(from === "depot" && to === "hiller")) { console.error(`FAIL: ${from}->${to} route is ${ratio.toFixed(2)}x straight-line (limit ${maxRatio})`); failed = true; }
+    if (ratio >= maxRatio && !(from === "depot" && to === "hiller") && !(from === "hiller" && to === "depot")) { console.error(`FAIL: ${from}->${to} route is ${ratio.toFixed(2)}x straight-line (limit ${maxRatio})`); failed = true; }
     // sharp-turn check over last 5 points
     let maxTurn = 0;
     for (let i = Math.max(1, pts.length - 4); i < pts.length - 1; i++) {

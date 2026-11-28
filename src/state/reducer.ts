@@ -5,9 +5,9 @@ import { isHatId } from '../data/hats';
 import type { HatId } from '../data/hats';
 import {
   DIFFICULTY, MAIN_STOPS, MAX_NAME, MAX_PROFILES, SHARP_MIND_COUNT, STAR_COLLECTOR_COUNT,
-  bonusXp, challengeXp, riddleXp,
+  bonusXp, challengeXp, riddleXp, treasureXp,
 } from './rules';
-import type { BadgeId, Difficulty, GameState, Profile, Run, Stars } from './types';
+import type { BadgeId, Difficulty, GameState, Profile, RiddleState, Run, Stars } from './types';
 
 export type Action =
   | { type: 'selectProfile'; id: string | null; now: number }
@@ -24,9 +24,18 @@ export type Action =
   | { type: 'startWalk' }
   | { type: 'cancelWalk' }
   | { type: 'arrive'; now: number }
-  | { type: 'skipBonus'; now: number };
+  | { type: 'skipBonus'; now: number }
+  | { type: 'riddleClock'; running: boolean; remainingMs: number; now: number }
+  | { type: 'startFinaleWalk' }
+  | { type: 'cancelFinaleWalk' }
+  | { type: 'arriveDepot' }
+  | { type: 'puzzleSolved' }
+  | { type: 'openChest'; now: number }
+  | { type: 'showSummary' }
+  | { type: 'setMuted'; muted: boolean }
+  | { type: 'setHaptics'; haptics: boolean };
 
-export const initialState = (): GameState => ({ profiles: [], activeId: null, settings: { muted: false } });
+export const initialState = (): GameState => ({ profiles: [], activeId: null, settings: { muted: false, haptics: true } });
 
 export const newRun = (now: number): Run => ({
   phase: 'intro', at: 'depot', unlocked: ['depot'], riddles: {}, stars: {}, fragments: [], xp: 0, earned: [], startedAt: now,
@@ -56,12 +65,26 @@ const award = (run: Run, ...ids: BadgeId[]): Run => {
   return fresh.length ? { ...run, earned: [...run.earned, ...fresh] } : run;
 };
 
+/** After the last stop: the run moves on to the finale (walk back, puzzle, chest). */
+export const finaleOrigin = (run: Run): StopId => (run.unlocked.includes('hiller') ? 'hiller' : 'highlands');
+/** Trail leg key of the walk back to Base Camp, once the finale has started. */
+export const returnLegKey = (run: Run): string | null =>
+  run.phase === 'finale' || (run.phase === 'summary' && run.treasure) ? `${finaleOrigin(run)}>depot` : null;
+
+function startFinale(state: GameState, run: Run, p: Profile): GameState {
+  return withRunState(state, p, { ...run, phase: 'finale', finaleStep: 'return' });
+}
+
+/** The chest is open: treasure XP, run-end badges, personal best. Phase stays `finale` (step `done`) until the summary is shown. */
 function finishRun(state: GameState, run: Run, p: Profile, now: number): GameState {
-  let r: Run = { ...run, phase: 'summary', finishedAt: now };
+  const bonus = treasureXp(DIFFICULTY[p.difficulty].xpMult);
+  let r: Run = { ...run, finaleStep: 'done', finishedAt: now, treasure: true, treasureXp: bonus, xp: run.xp + bonus };
   const noHints = MAIN_STOPS.filter((id) => id !== 'depot').every((id) => !r.riddles[id]?.hinted);
-  r = award(r, 'trailblazer', ...(noHints ? (['no-peeking'] as BadgeId[]) : []), ...(p.difficulty === 'legend' && !r.mixed ? (['legend'] as BadgeId[]) : []));
+  r = award(r, 'treasure-finder', 'trailblazer', ...(noHints ? (['no-peeking'] as BadgeId[]) : []), ...(p.difficulty === 'legend' && !r.mixed ? (['legend'] as BadgeId[]) : []));
   const stars = totalStars(r);
-  const best = !p.best || r.xp > p.best.xp ? { xp: r.xp, stars, difficulty: p.difficulty, finishedAt: now } : p.best;
+  const isBest = !p.best || r.xp > p.best.xp;
+  const best = isBest ? { xp: r.xp, stars, difficulty: p.difficulty, finishedAt: now } : p.best;
+  if (isBest) r = { ...r, newBest: true };
   return {
     ...state,
     profiles: state.profiles.map((q) => (q.id === p.id ? { ...p, run: r, best, badges: addUnique(p.badges, r.earned) } : q)),
@@ -93,6 +116,10 @@ export function reducer(state: GameState, a: Action): GameState {
       const profiles = state.profiles.filter((p) => p.id !== a.id);
       return { ...state, profiles, activeId: state.activeId === a.id ? null : state.activeId };
     }
+    case 'setMuted':
+      return state.settings.muted === a.muted ? state : { ...state, settings: { ...state.settings, muted: a.muted } };
+    case 'setHaptics':
+      return state.settings.haptics === a.haptics ? state : { ...state, settings: { ...state.settings, haptics: a.haptics } };
     case 'setDifficulty': {
       const p = activeProfile(state);
       if (!p || p.difficulty === a.difficulty) return state;
@@ -102,7 +129,7 @@ export function reducer(state: GameState, a: Action): GameState {
         if (run.phase === 'riddle') {
           const t = nextStopId(run);
           const rs = t ? run.riddles[t] : undefined;
-          if (t && rs) run = { ...run, riddles: { ...run.riddles, [t]: { ...rs, wrong: [] } } };
+          if (t && rs) run = { ...run, riddles: { ...run.riddles, [t]: { ...fresh(rs), wrong: [] } } };
         }
       }
       return { ...state, profiles: state.profiles.map((q) => (q.id === p.id ? { ...p, difficulty: a.difficulty, run } : q)) };
@@ -126,7 +153,7 @@ export function reducer(state: GameState, a: Action): GameState {
       if (totalStars(run) >= STAR_COLLECTOR_COUNT) run = award(run, 'star-collector');
       if (at === 'hiller') {
         run = award({ ...run, xp: run.xp + bonusXp(mult) }, 'sky-high');
-        return finishRun(state, run, p, a.now);
+        return startFinale(state, run, p);
       }
       return withRunState(state, p, { ...run, phase: 'riddle' });
     }
@@ -140,12 +167,12 @@ export function reducer(state: GameState, a: Action): GameState {
       const rs = p.run.riddles[target] ?? { tries: 0, hinted: false, firstTry: true, wrong: [] };
       if (rs.wrong.includes(a.choice) || a.choice < 0 || a.choice > 2) return state;
       if (a.choice !== riddle.answer) {
-        const riddles = { ...p.run.riddles, [target]: { ...rs, tries: rs.tries + 1, firstTry: false, wrong: [...rs.wrong, a.choice] } };
+        const riddles = { ...p.run.riddles, [target]: { ...fresh(rs), tries: rs.tries + 1, firstTry: false, wrong: [...rs.wrong, a.choice] } };
         return withRunState(state, p, { ...p.run, riddles });
       }
       let run: Run = {
         ...p.run,
-        riddles: { ...p.run.riddles, [target]: rs },
+        riddles: { ...p.run.riddles, [target]: fresh(rs) },
         xp: p.run.xp + riddleXp(rs.tries, DIFFICULTY[p.difficulty].xpMult),
         unlocked: addUnique(p.run.unlocked, [target]),
         phase: 'travel',
@@ -161,7 +188,7 @@ export function reducer(state: GameState, a: Action): GameState {
       const target = nextStopId(p.run);
       if (!target) return state;
       const rs = p.run.riddles[target] ?? { tries: 0, hinted: false, firstTry: true, wrong: [] };
-      return withRunState(state, p, { ...p.run, riddles: { ...p.run.riddles, [target]: { ...rs, tries: rs.tries + 1, firstTry: false } } });
+      return withRunState(state, p, { ...p.run, riddles: { ...p.run.riddles, [target]: { ...fresh(rs), tries: rs.tries + 1, firstTry: false } } });
     }
     case 'useHint': {
       const p = activeProfile(state);
@@ -184,10 +211,49 @@ export function reducer(state: GameState, a: Action): GameState {
     case 'skipBonus': {
       const p = activeProfile(state);
       if (!p?.run || p.run.phase !== 'riddle' || p.run.at !== 'highlands') return state;
+      return startFinale(state, p.run, p);
+    }
+    case 'riddleClock': {
+      const p = activeProfile(state);
+      if (!p?.run || p.run.phase !== 'riddle' || !DIFFICULTY[p.difficulty].riddleSeconds) return state;
+      const target = nextStopId(p.run);
+      if (!target) return state;
+      const { deadlineAt: _d, remainingMs: _r, ...rs } = p.run.riddles[target] ?? { tries: 0, hinted: false, firstTry: true, wrong: [] };
+      void _d; void _r;
+      const ms = Math.max(0, Math.round(a.remainingMs));
+      if (!a.running && ms <= 0) return state;
+      const next: RiddleState = a.running ? { ...rs, deadlineAt: a.now + ms } : { ...rs, remainingMs: ms };
+      return withRunState(state, p, { ...p.run, riddles: { ...p.run.riddles, [target]: next } });
+    }
+    case 'startFinaleWalk':
+      return withRun(state, (run) => (run.phase === 'finale' && run.finaleStep === 'return' ? { ...run, finaleStep: 'walking' } : run));
+    case 'cancelFinaleWalk':
+      return withRun(state, (run) => (run.phase === 'finale' && run.finaleStep === 'walking' ? { ...run, finaleStep: 'return' } : run));
+    case 'arriveDepot':
+      return withRun(state, (run) => (run.phase === 'finale' && run.finaleStep === 'walking' ? { ...run, at: 'depot', finaleStep: 'puzzle' } : run));
+    case 'puzzleSolved':
+      return withRun(state, (run) => (run.phase === 'finale' && run.finaleStep === 'puzzle' ? { ...run, finaleStep: 'chest' } : run));
+    case 'openChest': {
+      const p = activeProfile(state);
+      if (!p?.run || p.run.phase !== 'finale' || p.run.finaleStep !== 'chest') return state;
       return finishRun(state, p.run, p, a.now);
     }
+    case 'showSummary':
+      return withRun(state, (run) => {
+        if (run.phase !== 'finale' || run.finaleStep !== 'done') return run;
+        const { finaleStep: _f, ...rest } = run;
+        void _f;
+        return { ...rest, phase: 'summary' };
+      });
   }
 }
+
+/** a riddle state without its saved clock: the next try starts a full timer */
+const fresh = (rs: RiddleState): RiddleState => {
+  const { deadlineAt: _d, remainingMs: _r, ...rest } = rs;
+  void _d; void _r;
+  return rest;
+};
 
 function withRunState(state: GameState, p: Profile, run: Run): GameState {
   return {

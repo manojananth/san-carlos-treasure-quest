@@ -6,10 +6,10 @@ import { hatColor } from './data/hats';
 import { getRiddle } from './data/riddles';
 import { GAMES } from './games/registry';
 import { sfx } from './audio/sfx';
-import { buzz } from './audio/haptics';
+import { buzzTap } from './audio/haptics';
 import { GameProvider, useGame } from './state/GameContext';
-import { activeProfile, nextStopId, stopIndex } from './state/reducer';
-import { DIFFICULTY, MAIN_STOPS, badgeName } from './state/rules';
+import { activeProfile, nextStopId, returnLegKey, stopIndex } from './state/reducer';
+import { DIFFICULTY, MAIN_STOPS, badgeName, treasureXp } from './state/rules';
 import { Sheet } from './components/Sheet';
 import { HUD } from './components/HUD';
 import { ProfileScreen } from './components/ProfileScreen';
@@ -19,6 +19,9 @@ import { RiddleCard } from './components/RiddleCard';
 import { SummaryCard } from './components/SummaryCard';
 import { MenuSheet } from './components/MenuSheet';
 import { Leaderboard } from './components/Leaderboard';
+import { ReturnCard } from './finale/ReturnCard';
+import { FragmentPuzzle } from './finale/FragmentPuzzle';
+import { TreasureChest } from './finale/TreasureChest';
 import type { Profile, Run } from './state/types';
 import type { Stop } from './data/stops';
 
@@ -62,7 +65,15 @@ function Game() {
     () => STOPS.map((s) => (!run || !run.unlocked.includes(s.id) ? 'locked' : run.stars[s.id] ? 'done' : 'current')),
     [run],
   );
-  const legs = useMemo(() => (run ? run.unlocked.slice(1).map((id, i) => `${run.unlocked[i]}>${id}`) : []), [run]);
+  const unlockedKey = run ? run.unlocked.join(',') : '';
+  const finalePhase = run?.phase === 'finale' || (run?.phase === 'summary' && !!run.treasure);
+  const returnLeg = run && finalePhase ? returnLegKey(run) : null;
+  // trail legs revealed so far; the walk back to Base Camp joins them when the finale starts
+  const legs = useMemo(() => {
+    const ids = unlockedKey ? unlockedKey.split(',') : [];
+    const l = ids.slice(1).map((id, i) => `${ids[i]}>${id}`);
+    return returnLeg ? [...l, returnLeg] : l;
+  }, [unlockedKey, returnLeg]);
 
   // ---- toasts: one at a time, queued ----
   const showing = useRef(false);
@@ -85,7 +96,10 @@ function Game() {
   useEffect(() => {
     const r = runRef.current;
     if (!ready || !r || !key) return;
-    mapRef.current?.restore(stopIndex(r.at), r.unlocked.length - 1);
+    // in the finale the explorer is the only thing to frame (no newer stop to show)
+    mapRef.current?.restore(stopIndex(r.at), r.phase === 'finale' || r.phase === 'summary' ? stopIndex(r.at) : r.unlocked.length - 1,
+      // back at Base Camp after the finale walk: the whole trail, return leg included, is walked
+      r.at === 'depot' && (r.phase === 'summary' || (r.phase === 'finale' && r.finaleStep !== 'return' && r.finaleStep !== 'walking')));
     setBusy(false);
     queue.current = [];
     showing.current = false;
@@ -101,7 +115,7 @@ function Game() {
     const n = { key, unlocked: run.unlocked.length, fragments: run.fragments.length, earned: run.earned.length, xp: run.xp };
     if (s.key === key) {
       if (n.fragments > s.fragments) pushToast(`Map fragment ${n.fragments} of ${MAIN_STOPS.length} found!`, 'fragment');
-      if (n.earned > s.earned) pushToast(`New badge: ${badgeName(run.earned[run.earned.length - 1])}`, 'badge');
+      if (n.earned > s.earned) run.earned.slice(s.earned).forEach((id) => pushToast(`New badge: ${badgeName(id)}`, 'badge'));
       if (n.xp !== s.xp) setAnnounce(`${n.xp > s.xp ? '+' : '−'}${Math.abs(n.xp - s.xp)} XP. Total ${n.xp} XP.`);
       if (n.unlocked > s.unlocked) {
         const stop = STOPS[n.unlocked - 1];
@@ -120,10 +134,19 @@ function Game() {
     if (!r || r.phase !== 'travel' || busy) return;
     const from = stopIndex(r.at), to = r.unlocked.length - 1;
     dispatch({ type: 'startWalk' });
-    sfx('step');
     const ok = (await mapRef.current?.walk(from, to)) ?? false;
     dispatch(ok ? { type: 'arrive', now: Date.now() } : { type: 'cancelWalk' });
-    if (ok) buzz(20);
+    if (ok) buzzTap();
+  }, [busy, dispatch]);
+
+  const walkBack = useCallback(async () => {
+    const r = runRef.current;
+    if (!r || r.phase !== 'finale' || r.finaleStep !== 'return' || busy) return;
+    const from = stopIndex(r.at);
+    dispatch({ type: 'startFinaleWalk' });
+    const ok = (await mapRef.current?.walk(from, 0)) ?? false;
+    dispatch(ok ? { type: 'arriveDepot' } : { type: 'cancelFinaleWalk' });
+    if (ok) buzzTap();
   }, [busy, dispatch]);
 
   // close the menu if the player/run changes under it
@@ -165,6 +188,18 @@ function Game() {
             <button type="button" className="btn btn-go" data-testid="walk" onClick={walk} disabled={!ready || busy || phase === 'walking'}>
               {phase === 'walking' ? 'Walking…' : 'Walk to next stop'}
             </button>
+          </div>
+        </section>
+      )}
+
+      {profile && run && phase === 'finale' && run.finaleStep === 'walking' && (
+        <section className="panel" aria-live="polite">
+          <div className="panel-text">
+            <small>Heading back to</small>
+            <strong data-testid="next-stop">Base Camp</strong>
+          </div>
+          <div className="panel-actions">
+            <button type="button" className="btn btn-go" data-testid="walk" disabled>Walking…</button>
           </div>
         </section>
       )}
@@ -211,10 +246,29 @@ function Game() {
             onHint={() => dispatch({ type: 'useHint' })}
             onTimeout={() => dispatch({ type: 'riddleTimeout' })}
             onSkip={targetStop?.bonus ? () => dispatch({ type: 'skipBonus', now: Date.now() }) : undefined}
+            onClock={(running, remainingMs) => dispatch({ type: 'riddleClock', running, remainingMs, now: Date.now() })}
+          />
+        )}
+        {profile && run && phase === 'finale' && run.finaleStep === 'return' && (
+          <ReturnCard key={key} name={profile.name} fromTheme={STOPS[atIdx].theme} onGo={walkBack} />
+        )}
+        {profile && run && phase === 'finale' && run.finaleStep === 'puzzle' && (
+          <FragmentPuzzle key={key} paused={overlayOpen} onSolved={() => dispatch({ type: 'puzzleSolved' })} />
+        )}
+        {profile && run && phase === 'finale' && (run.finaleStep === 'chest' || run.finaleStep === 'done') && (
+          <TreasureChest
+            key={key}
+            xp={treasureXp(DIFFICULTY[profile.difficulty].xpMult)}
+            opened={false}
+            paused={overlayOpen}
+            playerName={profile.name}
+            isNewBest={!!run.newBest}
+            onOpen={() => dispatch({ type: 'openChest', now: Date.now() })}
+            onContinue={() => dispatch({ type: 'showSummary' })}
           />
         )}
         {profile && run && phase === 'summary' && (
-          <SummaryCard profile={profile} run={run} onLeaderboard={() => setOverlay('leaderboard')} onAgain={() => dispatch({ type: 'resetRun', now: Date.now() })} />
+          <SummaryCard profile={profile} run={run} onLeaderboard={() => setOverlay('leaderboard')} onAgain={() => dispatch({ type: 'resetRun', now: Date.now() })} onSwitch={() => dispatch({ type: 'selectProfile', id: null, now: Date.now() })} />
         )}
       </div>
 

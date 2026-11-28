@@ -101,7 +101,7 @@ Star Collector (≥15 stars in a run), Sky High (bonus stop), Trailblazer (finis
 ## UI (React, mobile-first)
 ProfileScreen (≤4 cards with avatar + name + XP, create with name + pick one of 6 hat colours, delete with confirm),
 HUD (avatar, XP counter that ticks with GSAP, star total, fragments x/6, menu button), StoryCard, StopCard
-(arrival + "Start challenge"), PlaceholderChallenge (tap 10 gold coins before time runs out; stars by time; uses
+(arrival + "Start challenge"), placeholder coin-tap challenge (removed in M4) (tap 10 gold coins before time runs out; stars by time; uses
 timeScale), RiddleCard (question, 3 big choices, hint button showing cost, timer bar), UnlockToast,
 SummaryCard, Menu sheet (difficulty, badges, leaderboard, switch player, restart run), Leaderboard (profiles on
 this device by best XP, stars, badges). Focus management + Esc closes sheets; all buttons ≥ 44 px.
@@ -156,3 +156,43 @@ Never fail with 0 stars: a finished attempt earns at least 1.
 | bigcanyon | Race up the canyon | Explorer runs up a winding side-scrolling trail; tap/hold to run, tap to jump roots and rocks, collect echo-gems; beat the clock to the summit marker | finish time + stumbles |
 | highlands | Penalty shootout | 5 shots: drag/flick to aim at the goal; the goalie dives with a tell; Legend goalie is quicker | goals scored |
 | hiller (bonus) | Paper-plane glide | Pick launch angle + power; glide over the hangar floor, tap to nudge up (limited); land through rings for points | distance + rings |
+
+---
+
+# Milestone 4 plan — finale, sound, polish, deploy
+
+## Finale (builder A)
+- New run phase `finale` after Summit Outpost (bonus skipped) or after Sky Hangar. Flow: "Return to Base Camp" card →
+  explorer walks back to the depot along prebuilt legs `highlands>depot` and `hiller>depot` (add to
+  `scripts/build-routes.ts`, regenerate `routes.json`) → **fragment puzzle**: the 6 collected fragments are pieces of
+  an original illustrated treasure map of San Carlos (hills west, Bay east, the six stops as icons, a red X by the
+  depot). Drag each piece (kit `usePointerDrag`) into a 3×2 frame; pieces snap when within tolerance; keyboard
+  path like Base Camp → **chest**: an original SVG chest by the depot; lid opens (GSAP), gold coins burst out and
+  arc into a pile, confetti → **final summary**: XP, stars, badges earned, best-ever marker, Play again.
+- Treasure XP bonus: +100 × multiplier, awarded once per run. New badge **Treasure Finder** (open the chest).
+- Reduced motion: no confetti or coin burst; lid simply opens and a coin pile fades in.
+- Fix the M2 known gap: persist `deadlineAt` for timed riddles so a reload no longer resets the timer.
+
+## Sound & polish (builder B)
+- Howler.js. Original sound effects synthesised at build time by `scripts/make-sfx.ts` (oscillators + envelopes +
+  noise, written as small mono WAVs to `public/sfx/`, committed) — no downloaded audio. Names: the existing
+  `SfxName` list plus `clank`, `whoosh`, `kick`, `cheer`, `chest`, `coins`, `tick`, `go`.
+- `sfx(name)` plays through one Howler sprite or individual Howls, lazy-unlocked on first user gesture
+  (iOS), respects mute, never throws. Mute toggle button in the HUD (speaker icon, aria-pressed) and in the menu,
+  stored in `settings.muted` via a new `setMuted` action.
+- Haptics: audit `buzz()` patterns (short tap 10 ms, success [20,40,20], fail 60); skip when muted? No — haptics
+  follow a separate "Vibration" toggle in the menu (default on), stored in `settings.haptics`.
+- Reduced-motion audit across the whole app (map flights, walks, XP ticker, toasts, sheets, all games, finale).
+- README: how to play, controls, credits/attributions, dev scripts.
+
+### M4 finale implementation notes
+- Run phase `finale` with `finaleStep`: `return` (card) -> `walking` -> `puzzle` -> `chest` -> `done` (chest open, XP paid) -> phase `summary`.
+  Actions: `startFinaleWalk`, `cancelFinaleWalk`, `arriveDepot`, `puzzleSolved`, `openChest`, `showSummary`. Finishing the last stop (or `skipBonus`) now
+  enters the finale; `finishedAt`, best, Trailblazer / No Peeking / Legend and the new Treasure Finder badge are awarded at `openChest`
+  (`Run.treasure`, `Run.newBest`). Treasure XP = round(100 x multiplier), once.
+- Reload mid-finale: a walk in flight resumes at the `return` card (explorer back at the stop it left); `puzzle` and `chest` resume as they were
+  (the puzzle itself restarts); `done` resumes at the summary. A finale save without all six fragments is dropped.
+- The return leg (`highlands>depot` or `hiller>depot`) joins the trail legs when the finale starts.
+- Timed riddles persist their clock: `RiddleState.deadlineAt` (running) / `remainingMs` (paused by the menu) via the `riddleClock` action; on
+  reload the timer resumes (min 5 s grace, never above full). The M2 known gap is closed.
+- Code: `src/finale/` (puzzle.ts logic, mapArt.tsx, FragmentPuzzle, TreasureChest, Confetti, ReturnCard); final summary is `components/SummaryCard.tsx`.
