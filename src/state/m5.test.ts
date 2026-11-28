@@ -166,25 +166,32 @@ describe('gear and coins', () => {
     expect(P(s).gear.equipped).toEqual({ pet: 'pet-pup' });
     expect(reducer(s, { type: 'equip', slot: 'hat', id: null })).toBe(s);
   });
-  it('coins: 5 per star, 5 for a first-try riddle, 50 for the chest, flat on every difficulty', () => {
+  it('coins: stars and the chest scale with coinMult, first-try riddle coins stay flat', () => {
+    expect(DIFFICULTY.rookie.coinMult).toBe(1);
+    expect(DIFFICULTY.pro.coinMult).toBe(1);
+    expect(DIFFICULTY.legend.coinMult).toBe(1.5);
+    expect(DIFFICULTY.hunter.coinMult).toBe(2);
     for (const d of DIFFICULTIES) {
+      const m = DIFFICULTY[d].coinMult;
       let s = challenge(create(d), 2);
-      expect(P(s).coins).toBe(2 * COIN_PER_STAR);
+      expect(P(s).coins).toBe(Math.round(2 * COIN_PER_STAR * m));
       s = solve(s);
-      expect(P(s).coins).toBe(2 * COIN_PER_STAR + COIN_FIRST_TRY_RIDDLE);
+      expect(P(s).coins).toBe(Math.round(2 * COIN_PER_STAR * m) + COIN_FIRST_TRY_RIDDLE);
     }
     // a second try pays no riddle coins
     let s = challenge(create('rookie'), 1);
     s = run(s, { type: 'answerRiddle', correct: false, mark: '1' }, { type: 'answerRiddle', correct: true });
     expect(P(s).coins).toBe(COIN_PER_STAR);
-    // the chest
-    const chest = toChest('pro');
-    const before = P(chest).coins;
-    expect(P(reducer(chest, { type: 'openChest', now: 9 })).coins).toBe(before + COIN_CHEST);
+    // the chest, scaled by difficulty
+    for (const d of DIFFICULTIES) {
+      const chest = toChest(d);
+      const before = P(chest).coins;
+      expect(P(reducer(chest, { type: 'openChest', now: 9 })).coins).toBe(before + Math.round(COIN_CHEST * DIFFICULTY[d].coinMult));
+    }
   });
   it('coins survive a new run', () => {
     const s = challenge(create(), 3);
-    expect(P(reducer(s, { type: 'resetRun', now: 99 })).coins).toBe(3 * COIN_PER_STAR);
+    expect(P(reducer(s, { type: 'resetRun', now: 99 })).coins).toBe(Math.round(3 * COIN_PER_STAR * DIFFICULTY.hunter.coinMult));
   });
   it('findSpike pays once per profile, ignores unknown ids and works without a run', () => {
     let s = create();

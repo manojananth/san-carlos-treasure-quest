@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ScrambleRiddle as Model } from './types';
 import type { KindProps } from './kinds';
 import { RiddleLayout } from './Layout';
-import { firstUnsolved, lettersOf, slotWord } from './scramble';
+import { firstUnsolved, lettersOf, slotWord, typedSkipsLocked } from './scramble';
 import { usePointerDrag } from '../games/kit/usePointerDrag';
 import { useReducedMotion } from '../games/kit/useReducedMotion';
 
@@ -28,6 +28,8 @@ export function ScrambleRiddle({ riddle, hinted, paused, solved, judge, head, fo
   offRef.current = off;
   const stateRef = useRef({ slots, locked });
   stateRef.current = { slots, locked };
+  /** typing cursor (see typedSkipsLocked); -1 once taps or undo took over */
+  const typePtr = useRef(0);
   const judgeRef = useRef(judge);
   judgeRef.current = judge;
 
@@ -48,6 +50,7 @@ export function ScrambleRiddle({ riddle, hinted, paused, solved, judge, head, fo
         setShake(true);
         window.setTimeout(() => {
           setShake(false);
+          typePtr.current = 0;
           const cur = stateRef.current;
           commit(cur.slots.map((t, i) => (cur.locked[i] ? t : null)), cur.locked);
         }, 450);
@@ -58,6 +61,7 @@ export function ScrambleRiddle({ riddle, hinted, paused, solved, judge, head, fo
   /** put `tile` into slot `at` (default: first free slot); a tile already in another slot moves */
   const place = (tile: number, at?: number) => {
     if (offRef.current) return;
+    typePtr.current = -1;
     const { slots: s0, locked: l } = stateRef.current;
     const s = s0.map((t) => (t === tile ? null : t));
     const idx = at ?? s.findIndex((t) => t === null);
@@ -73,6 +77,7 @@ export function ScrambleRiddle({ riddle, hinted, paused, solved, judge, head, fo
   };
   const undo = () => {
     if (offRef.current) return;
+    typePtr.current = -1;
     const { slots: s0, locked: l } = stateRef.current;
     for (let i = s0.length - 1; i >= 0; i--) if (s0[i] !== null && !l[i]) { unplace(i); return; }
   };
@@ -88,8 +93,11 @@ export function ScrambleRiddle({ riddle, hinted, paused, solved, judge, head, fo
       if (e.key === 'Backspace') { e.preventDefault(); undoRef.current(); return; }
       if (e.key.length !== 1 || !/[a-z]/i.test(e.key)) return;
       const ch = e.key.toUpperCase();
+      const st = stateRef.current;
+      if (typedSkipsLocked(riddle.word, st.locked, typePtr.current, ch)) { e.preventDefault(); typePtr.current += 1; return; }
+      const at = st.slots.findIndex((t) => t === null);
       const free = riddle.tiles.findIndex((t, i) => t === ch && !stateRef.current.slots.includes(i));
-      if (free >= 0) { e.preventDefault(); placeRef.current(free); }
+      if (free >= 0) { e.preventDefault(); placeRef.current(free); typePtr.current = at + 1; }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

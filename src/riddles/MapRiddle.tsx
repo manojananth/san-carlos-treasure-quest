@@ -10,6 +10,8 @@ interface Props extends KindProps<Model> {
   pick?: (o: PickOptions) => PickHandle;
   /** "Riddle" / "Bonus riddle" */
   label: string;
+  /** the map has loaded; framing waits for it */
+  mapReady?: boolean;
 }
 
 const nice = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 50) * 50 || 50} m`);
@@ -18,7 +20,7 @@ const nice = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math
  * The card shrinks to a slim banner so the map stays usable: pan and zoom as usual, tap a spot to answer.
  * Stops that are still locked stay hidden, so the player has to read the map (streets, parks, water).
  */
-export function MapRiddle({ riddle, hinted, paused, solved, judge, head, foot, pick, label }: Props) {
+export function MapRiddle({ riddle, hinted, paused, solved, judge, head, foot, pick, label, mapReady }: Props) {
   const banner = useRef<HTMLDivElement>(null);
   const pad = useRef(0);
   const framed = useRef(false);
@@ -56,11 +58,11 @@ export function MapRiddle({ riddle, hinted, paused, solved, judge, head, foot, p
         judgeRef.current(ok, pickMark(ll), msg);
       },
     });
-    framed.current = true;
+    framed.current = !!mapReady;
     handle.current = h;
     return () => { h(); handle.current = null; };
     // re-start only when the hint circle appears (the pad is read once at start)
-  }, [hinted, pick, riddle.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hinted, pick, riddle.id, mapReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <section className="riddle-banner" ref={banner} aria-label={label}>

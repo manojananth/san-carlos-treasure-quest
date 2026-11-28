@@ -29,6 +29,8 @@ interface Props {
   paused?: boolean;
   /** starts tap-the-map mode on the real map (map riddles); returns the cancel function */
   pick?: (o: PickOptions) => PickHandle;
+  /** the map has loaded (map riddles frame the view once it has) */
+  mapReady?: boolean;
 }
 
 /** Harder kinds need more hands-on time, so their clock is longer than the plain-choice one. */
@@ -43,7 +45,7 @@ const hintText = (r: Riddle): string => {
   }
 };
 
-export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint, onTimeout, onSkip, onClock, paused = false, pick }: Props) {
+export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint, onTimeout, onSkip, onClock, paused = false, pick, mapReady }: Props) {
   const rules = DIFFICULTY[difficulty];
   const tries = state?.tries ?? 0;
   const wrong = state?.wrong ?? [];
@@ -139,7 +141,7 @@ export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint,
   const common = { hinted, wrong, paused, solved: good, judge, head, foot };
   const label = bonus ? 'Bonus riddle' : 'Riddle';
 
-  if (riddle.kind === 'map') return <MapRiddle {...common} riddle={riddle} pick={pick} label={label} />;
+  if (riddle.kind === 'map') return <MapRiddle {...common} riddle={riddle} pick={pick} label={label} mapReady={mapReady} />;
   return (
     <Sheet title={label} heading={bonus ? <>Bonus <span>riddle</span></> : <>Where is the <span>next fragment?</span></>} className={`riddle riddle-${riddle.kind}`}>
       {bonus && <p className="note">Solve this to open a secret stop, or skip it and finish your quest.</p>}

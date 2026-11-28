@@ -8,7 +8,12 @@ function initialOn(): boolean {
 /** Synced from settings.haptics. */
 export function setHaptics(b: boolean): void {
   on = b;
-  if (!b) { try { navigator.vibrate?.(0); } catch { /* ignore */ } }
+  if (!b) {
+    try {
+      // Browsers reject vibrate() before any user gesture (a console warning); only cancel once the user has interacted.
+      if ((navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation?.hasBeenActive) navigator.vibrate?.(0);
+    } catch { /* ignore */ }
+  }
 }
 
 export function buzz(pattern: number | number[] = 10): void {

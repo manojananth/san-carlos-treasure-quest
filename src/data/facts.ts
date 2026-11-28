@@ -18,7 +18,7 @@ export const FACTS: Fact[] = [
   {
     id: 'depot-builder',
     text: 'The railroad that built the San Carlos depot was the Southern Pacific.',
-    quiz: { q: 'Which railroad built the depot?', choices: ['Pony Express', 'Southern Pacific', 'Union Pacific'], answer: 1, decoy: 'Gold Rush Express' },
+    quiz: { q: 'Which railroad built the depot?', choices: ['Pony Express', 'Southern Pacific', 'Union Pacific'], answer: 1, decoy: 'Central Pacific' },
   },
   {
     id: 'incorporated',
@@ -28,7 +28,7 @@ export const FACTS: Fact[] = [
   {
     id: 'nickname',
     text: 'San Carlos is nicknamed the "City of Good Living".',
-    quiz: { q: 'What is the nickname of San Carlos?', choices: ['City of Good Living', 'City of Lost Ships', 'City of Trees'], answer: 0, decoy: 'Hilltop Harbor' },
+    quiz: { q: 'What is the nickname of San Carlos?', choices: ['City of Good Living', 'City of Lost Ships', 'City of Trees'], answer: 0, decoy: 'City of Bridges' },
   },
   {
     id: 'caltrain',
@@ -48,7 +48,7 @@ export const FACTS: Fact[] = [
   {
     id: 'hiller-flight',
     text: 'The Hiller Aviation Museum is all about flight, with helicopters and airplanes to explore.',
-    quiz: { q: 'What is the Hiller Aviation Museum about?', choices: ['Cooking', 'Flight', 'Deep-sea diving'], answer: 1, decoy: 'Dinosaur bones' },
+    quiz: { q: 'What is the Hiller Aviation Museum about?', choices: ['Cooking', 'Flight', 'Deep-sea diving'], answer: 1, decoy: 'Railroads' },
   },
   {
     id: 'hiller-pioneer',
@@ -63,7 +63,7 @@ export const FACTS: Fact[] = [
   {
     id: 'creek',
     text: 'A creek is a small stream of flowing water.',
-    quiz: { q: 'What is a creek?', choices: ['A small stream', 'A kind of hill', 'A train track'], answer: 0, decoy: 'A kind of boat' },
+    quiz: { q: 'What is a creek?', choices: ['A small stream', 'A kind of hill', 'A train track'], answer: 0, decoy: 'A kind of tree' },
   },
   {
     id: 'summit',

@@ -4,7 +4,7 @@ import { rngFrom, shuffleWith } from './rng';
 export const lettersOf = (word: string): string[] => word.replace(/[^A-Z]/g, '').split('');
 
 /** Decoy letters used on the hardest tier; one that is not in the word is added to the tray. */
-const DECOYS = 'QXZJKVWYB';
+const DECOYS = 'EATRNOSILDCMHUPGB';
 
 export function decoyFor(word: string, seed: number): string {
   const free = DECOYS.split('').filter((c) => !word.includes(c));
@@ -34,4 +34,14 @@ export const isScrambleSolved = (word: string, slots: (string | null)[]): boolea
 export const firstUnsolved = (word: string, slots: (string | null)[]): number => {
   const w = lettersOf(word);
   return w.findIndex((c, i) => slots[i] !== c);
+};
+
+/**
+ * Typing the whole word after a hint locked some slots: a typed letter that equals the letter of the locked slot
+ * under the typing cursor (`ptr`) is consumed by stepping over that slot, instead of landing one slot off.
+ * `ptr < 0` means the player has used taps or undo, so typed letters just fill the first empty slot.
+ */
+export const typedSkipsLocked = (word: string, locked: boolean[], ptr: number, ch: string): boolean => {
+  const w = lettersOf(word);
+  return ptr >= 0 && ptr < w.length && !!locked[ptr] && w[ptr] === ch;
 };

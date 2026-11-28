@@ -13,15 +13,17 @@ export interface DifficultyRules {
   riddleSeconds: number | null;
   hintCost: number;
   xpMult: number;
+  /** multiplies coins from stars and the treasure chest (spike and first-try coins stay flat) */
+  coinMult: number;
   /** passed to mini-games: bigger = more forgiving */
   timeScale: number;
 }
 
 export const DIFFICULTY: Record<Difficulty, DifficultyRules> = {
-  rookie: { label: 'Rookie', tier: 'easy', riddleSeconds: null, hintCost: 5, xpMult: 1.0, timeScale: 1.3 },
-  pro: { label: 'Pro', tier: 'medium', riddleSeconds: 60, hintCost: 10, xpMult: 1.25, timeScale: 1.0 },
-  legend: { label: 'Legend', tier: 'hard', riddleSeconds: 35, hintCost: 20, xpMult: 1.5, timeScale: 0.75 },
-  hunter: { label: 'Treasure Hunter', tier: 'expert', riddleSeconds: 25, hintCost: 30, xpMult: 2.0, timeScale: 0.6 },
+  rookie: { label: 'Rookie', tier: 'easy', riddleSeconds: null, hintCost: 5, xpMult: 1.0, coinMult: 1, timeScale: 1.3 },
+  pro: { label: 'Pro', tier: 'medium', riddleSeconds: 60, hintCost: 10, xpMult: 1.25, coinMult: 1, timeScale: 1.0 },
+  legend: { label: 'Legend', tier: 'hard', riddleSeconds: 35, hintCost: 20, xpMult: 1.5, coinMult: 1.5, timeScale: 0.75 },
+  hunter: { label: 'Treasure Hunter', tier: 'expert', riddleSeconds: 25, hintCost: 30, xpMult: 2.0, coinMult: 2, timeScale: 0.6 },
 };
 export const DIFFICULTIES: Difficulty[] = ['rookie', 'pro', 'legend', 'hunter'];
 
@@ -33,7 +35,7 @@ export const BONUS_XP = 40;
 export const STAR_XP = 20;
 /** Treasure chest bonus (before the difficulty multiplier), paid once per run. */
 export const TREASURE_XP = 100;
-/** Coins are flat (no difficulty multiplier). */
+/** Base coins (before the difficulty coinMult, except spikes and first-try riddles which stay flat). */
 export const COIN_PER_STAR = 5;
 export const COIN_FIRST_TRY_RIDDLE = 5;
 export const COIN_SPIKE = 15;

@@ -8,7 +8,10 @@ export function StoryCard({ name, onBegin }: { name: string; onBegin: () => void
         depot, built in 1888. Then he split the treasure map into <b>6 fragments</b> and tucked them away around San Carlos.
       </p>
       <p className="story-text">
-        Win a challenge to grab each fragment, then solve a riddle to find out where the next one hides. Ready, explorer?
+        Win a challenge to grab each fragment, then solve a riddle to find out where the next one hides.
+      </p>
+      <p className="story-text">
+        Keep an eye out for 8 golden spikes hidden beside the trails — zoom in close to spot them! Ready, explorer?
       </p>
       <div className="row">
         <button type="button" className="btn btn-go wide" data-autofocus onClick={onBegin}>Let's go!</button>

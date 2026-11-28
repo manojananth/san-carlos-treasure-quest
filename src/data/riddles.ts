@@ -32,10 +32,13 @@ export function pickIndex(stop: RiddleStopId, tier: Tier, seed: number): number 
   let prevMap = false;
   for (const s of RIDDLE_ORDER) {
     const pool = poolFor(s, tier);
-    let i = hash(seed, s, tier) % pool.length;
+    // expert never draws a plain choice riddle (the answer would be "the next stop" of a fixed route)
+    const cand = pool.map((_, k) => k).filter((k) => tier !== 'expert' || pool[k].kind !== 'choice');
+    let i = cand[hash(seed, s, tier) % cand.length];
     if (prevMap && pool[i].kind === 'map') {
-      for (let k = 1; k < pool.length; k++) {
-        const j = (i + k) % pool.length;
+      const at = cand.indexOf(i);
+      for (let k = 1; k < cand.length; k++) {
+        const j = cand[(at + k) % cand.length];
         if (pool[j].kind !== 'map') { i = j; break; }
       }
     }

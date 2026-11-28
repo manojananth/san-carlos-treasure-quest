@@ -19,14 +19,14 @@ import './MerchantRoad.css';
  *
  * TREASURE HUNTER (7 items incl. 2 tiny ones, lights-out best of 2):
  *   part 1 points = items found (0-7) + 1 bonus point if all 7 were found with at least 30% of the time left        (0-8)
- *   part 2 points = best of two starts: under 350 ms -> 3, under 450 ms -> 1, slower / jump-started / no tap -> 0     (0-3)
- *   starsFor(score, [6, 10]): full marks (3 stars) needs a start under 350 ms plus nearly every item.
+ *   part 2 points = best of two starts: under 380 ms -> 3, under 450 ms -> 1, slower / jump-started / no tap -> 0     (0-3)
+ *   starsFor(score, [6, 10]): full marks (3 stars) needs a start under 380 ms plus nearly every item.
  */
 const STAR_SCORE: Record<Difficulty, [number, number]> = { rookie: [4, 7], pro: [4, 7], legend: [4, 7], hunter: [6, 10] };
 export function scoreFor(found: number, timeLeftFraction: number, reactionMs: number | null, hunter = false): number {
   if (hunter) {
     const h1 = found + (found === HIDDEN_HUNTER.length && timeLeftFraction >= 0.3 ? 1 : 0);
-    const h2 = reactionMs === null ? 0 : reactionMs < 350 ? 3 : reactionMs < 450 ? 1 : 0;
+    const h2 = reactionMs === null ? 0 : reactionMs < 380 ? 3 : reactionMs < 450 ? 1 : 0;
     return h1 + h2;
   }
   const p1 = found + (found === 5 && timeLeftFraction >= 0.4 ? 1 : 0);

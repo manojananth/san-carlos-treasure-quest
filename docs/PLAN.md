@@ -235,7 +235,7 @@ gesture-retry unlock + `navigator.audioSession.type = 'playback'` for the silent
   near unlocked trails, only visible when zoomed in (≥ 15.3) with a faint glint; tap to collect (sound, coins,
   toast, count). Found spikes persist per profile.
 - **Explorer gear** (`src/gear/*`, explorer SVG layers, a Shop sheet from the menu and profile screen): 5 hats,
-  4 backpacks, 4 trail pets (a pet trots beside the explorer on the map), original SVG art, prices 40–250 coins.
+  4 backpacks, 4 trail pets (a pet trots beside the explorer on the map), original SVG art, prices 40–500 coins (coins scale ×1.5 on Legend, ×2 on Treasure Hunter).
   Equipped gear shows on the map explorer, the HUD avatar and the profile card.
 
 ### M5 foundation (phase 1, implemented)
@@ -263,7 +263,7 @@ Everything below is in place; phase 2 builders extend it without touching these 
 - Actions: `buyItem { id }` (catalog price, enough coins, not already owned), `equip { slot, id | null }` (must be owned and match the slot;
   `null` unequips), `findSpike { id }` (known id, once per profile, +15 coins; the 8th also awards `spike-collector` into `run.earned` and `badges`).
   Coins also come from `finishChallenge` (5 per star), a first-try riddle (5) and `openChest` (50).
-- Catalog `src/data/gear.ts`: `GEAR` (5 hats, 4 packs, 4 pets, ids like `hat-crown`, `pet-pup`, prices 40-250), `GearSlot`, `gearItem(id)`, `isGearId`,
+- Catalog `src/data/gear.ts`: `GEAR` (5 hats, 4 packs, 4 pets, ids like `hat-crown`, `pet-pup`, prices 40-500), `GearSlot`, `gearItem(id)`, `isGearId`,
   `gearBySlot(slot)`, `GEAR_SLOTS`, `SLOT_LABEL`. Spikes `src/data/spikes.ts`: `SPIKES` (8, `lonLat: null` until phase 2), `spikeDef(id)`, `isSpikeId`.
 - UI: HUD has a coin pill (`data-testid="coins"`, compact chips so it fits 390 px even with 4-digit values). App shows a `spike` toast when
   `profile.spikes` grows (`spikeName(id)` from reducer.ts), so a map hook only has to dispatch `findSpike`.

@@ -5,10 +5,10 @@ import { BADGES, treasureXp, DIFFICULTY } from '../state/rules';
 import { totalStars } from '../state/reducer';
 import type { Profile, Run } from '../state/types';
 
-interface Props { profile: Profile; run: Run; onLeaderboard: () => void; onAgain: () => void; onSwitch: () => void }
+interface Props { profile: Profile; run: Run; onLeaderboard: () => void; onAgain: () => void; onSwitch: () => void; onShop: () => void }
 
 /** Final summary after the treasure chest (also shown for runs saved before the finale existed). */
-export function SummaryCard({ profile, run, onLeaderboard, onAgain, onSwitch }: Props) {
+export function SummaryCard({ profile, run, onLeaderboard, onAgain, onSwitch, onShop }: Props) {
   const rows = STOPS.filter((s) => !s.bonus || run.stars[s.id] !== undefined);
   const stars = totalStars(run);
   const bonus = treasureXp(DIFFICULTY[profile.difficulty].xpMult);
@@ -23,6 +23,7 @@ export function SummaryCard({ profile, run, onLeaderboard, onAgain, onSwitch }: 
         <div><dt>XP</dt><dd data-testid="sum-xp">{run.xp}</dd></div>
         <div><dt>Stars</dt><dd data-testid="sum-stars">{stars}</dd></div>
         <div><dt>Fragments</dt><dd>{run.fragments.length}/6</dd></div>
+        <div><dt>Coins</dt><dd>{profile.coins}</dd></div>
         {run.treasure && <div><dt>Treasure</dt><dd>+{run.treasureXp ?? bonus}</dd></div>}
       </dl>
       <ul className="sum-rows" aria-label="Stars at each stop">
@@ -46,6 +47,7 @@ export function SummaryCard({ profile, run, onLeaderboard, onAgain, onSwitch }: 
       )}
       <div className="row">
         <button type="button" className="btn btn-go" data-autofocus data-testid="play-again" onClick={onAgain}>Play again</button>
+        <button type="button" className="btn btn-plain" data-testid="explorer-shop" onClick={onShop}>Explorer Shop</button>
         <button type="button" className="btn btn-plain" data-testid="switch-player" onClick={onSwitch}>Switch player</button>
         <button type="button" className="btn btn-plain" onClick={onLeaderboard}>Leaderboard</button>
       </div>

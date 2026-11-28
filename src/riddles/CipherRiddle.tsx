@@ -107,6 +107,9 @@ export function CipherRiddle({ riddle, hinted, wrong, paused, solved, judge, hea
           <code className="tele-out">{reads}</code>
         </div>
 
+          {w !== riddle.shift && !hinted ? (
+            <p className="note">Turn the wheel until the telegram reads clearly.</p>
+          ) : (
           <div className="choices cipher-options" role="group" aria-label="Which stop is the telegram about?">
             {riddle.options.map((c, i) => (
               <button
@@ -121,6 +124,7 @@ export function CipherRiddle({ riddle, hinted, wrong, paused, solved, judge, hea
               </button>
             ))}
           </div>
+          )}
         </>
       }
     />

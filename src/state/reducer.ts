@@ -104,7 +104,7 @@ function finishRun(state: GameState, run: Run, p: Profile, now: number): GameSta
   if (isBest) r = { ...r, newBest: true };
   return {
     ...state,
-    profiles: state.profiles.map((q) => (q.id === p.id ? { ...p, run: r, best, coins: p.coins + COIN_CHEST, badges: addUnique(p.badges, r.earned) } : q)),
+    profiles: state.profiles.map((q) => (q.id === p.id ? { ...p, run: r, best, coins: p.coins + Math.round(COIN_CHEST * DIFFICULTY[p.difficulty].coinMult), badges: addUnique(p.badges, r.earned) } : q)),
   };
 }
 
@@ -202,9 +202,9 @@ export function reducer(state: GameState, a: Action): GameState {
       if (totalStars(run) >= STAR_COLLECTOR_COUNT) run = award(run, 'star-collector');
       if (at === 'hiller') {
         run = award({ ...run, xp: run.xp + bonusXp(mult) }, 'sky-high');
-        return startFinale(state, run, p, a.stars * COIN_PER_STAR);
+        return startFinale(state, run, p, Math.round(a.stars * COIN_PER_STAR * DIFFICULTY[p.difficulty].coinMult));
       }
-      return withRunState(state, p, { ...run, phase: 'riddle' }, a.stars * COIN_PER_STAR);
+      return withRunState(state, p, { ...run, phase: 'riddle' }, Math.round(a.stars * COIN_PER_STAR * DIFFICULTY[p.difficulty].coinMult));
     }
 
     case 'answerRiddle': {

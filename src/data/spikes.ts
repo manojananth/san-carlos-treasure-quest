@@ -15,7 +15,7 @@ export interface SpikeDef {
  */
 export const SPIKES: SpikeDef[] = [
   { id: 'spike-depot', name: 'Depot Spike', lonLat: [-122.259599, 37.507616], leg: 'depot>laurel' }, // 10 %, by the station
-  { id: 'spike-laurel', name: 'Main Street Spike', lonLat: [-122.263102, 37.504977], leg: 'laurel>cityhall' }, // 50 %
+  { id: 'spike-laurel', name: 'Laurel Spike', lonLat: [-122.263102, 37.504977], leg: 'laurel>cityhall' }, // 50 %
   { id: 'spike-cityhall', name: 'Scroll Spike', lonLat: [-122.260087, 37.501104], leg: 'cityhall>burton' }, // 50 %
   { id: 'spike-burton', name: 'Fort Spike', lonLat: [-122.265887, 37.495012], leg: 'burton>bigcanyon' }, // 25 %
   { id: 'spike-canyon', name: 'Echo Spike', lonLat: [-122.276473, 37.485999], leg: 'burton>bigcanyon' }, // 70 %

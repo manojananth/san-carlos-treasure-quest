@@ -195,9 +195,11 @@ function Game() {
 
       {profile && run && <HUD profile={profile} run={run} onMenu={() => setOverlay('menu')} />}
 
-      <div className="toasts" role="status" aria-live="polite">
-        {toast && <div key={toast.id} className={`toast ${toast.kind}`}>{toast.text}</div>}
-      </div>
+      {!overlayOpen && (
+        <div className="toasts" role="status" aria-live="polite">
+          {toast && <div key={toast.id} className={`toast ${toast.kind}`}>{toast.text}</div>}
+        </div>
+      )}
       <div className="sr-only" role="status" aria-live="polite">{announce}</div>
 
       {profile && run && (phase === 'travel' || phase === 'walking') && targetStop && (
@@ -262,6 +264,7 @@ function Game() {
             difficulty={profile.difficulty}
             paused={overlayOpen}
             pick={pickOnMap}
+            mapReady={ready}
             bonus={!!targetStop?.bonus}
             onAnswer={(correct, mark) => {
               if (correct) setBusy(true); // the unlock fly-to starts next; keep Walk disabled until it ends
@@ -292,7 +295,7 @@ function Game() {
           />
         )}
         {profile && run && phase === 'summary' && (
-          <SummaryCard profile={profile} run={run} onLeaderboard={() => setOverlay('leaderboard')} onAgain={() => dispatch({ type: 'resetRun', now: Date.now() })} onSwitch={() => dispatch({ type: 'selectProfile', id: null, now: Date.now() })} />
+          <SummaryCard profile={profile} run={run} onLeaderboard={() => setOverlay('leaderboard')} onAgain={() => dispatch({ type: 'resetRun', now: Date.now() })} onSwitch={() => dispatch({ type: 'selectProfile', id: null, now: Date.now() })} onShop={() => setOverlay('shop')} />
         )}
       </div>
 

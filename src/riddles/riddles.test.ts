@@ -4,7 +4,7 @@ import { CIPHER_SHIFT, RIDDLE_ORDER, getRiddle, pickIndex, poolFor, resolveRiddl
 import { TIERS } from './types';
 import type { ChoiceRiddle, CipherRiddle, MapRiddle, ScrambleRiddle } from './types';
 import { caesar, decode, encode, normWheel, wheelFromAngle } from './cipher';
-import { firstUnsolved, isScrambleSolved, lettersOf, makeTiles, slotWord } from './scramble';
+import { decoyFor, firstUnsolved, isScrambleSolved, lettersOf, makeTiles, slotWord, typedSkipsLocked } from './scramble';
 import { HINT_FACTOR, MAP_RADIUS, circleRing, distanceM, isHit, offsetLonLat, pickMark } from './geo';
 
 describe('pools', () => {
@@ -41,6 +41,30 @@ describe('pools', () => {
     };
     expect(avg('easy')).toBeLessThan(avg('hard'));
     expect(avg('hard')).toBeLessThanOrEqual(avg('expert') + 0.5);
+  });
+});
+
+describe('expert and giveaways', () => {
+  it('expert never picks a choice riddle', () => {
+    for (let seed = 0; seed < 400; seed++) for (const s of RIDDLE_ORDER) expect(getRiddle(s, 'expert', seed)!.kind, `${s} ${seed}`).not.toBe('choice');
+  });
+  it('hard and expert content never mentions stop numbers or order', () => {
+    const re = /number \d|\b(first|second|third|fourth|fifth|sixth) (stop|sign)/i;
+    for (const s of RIDDLE_ORDER) for (const t of ['hard', 'expert'] as const) for (const d of poolFor(s, t)) {
+      const text = [d.hint, 'text' in d ? d.text : '', 'msg' in d ? d.msg : '', 'answer' in d ? d.answer : ''].join(' | ');
+      expect(text, `${s} ${t}`).not.toMatch(re);
+      if (d.kind === 'choice' || d.kind === 'cipher') expect(d.wrong.join(' ')).not.toMatch(re);
+    }
+  });
+  it('decoys are never a letter of the answer', () => {
+    for (let seed = 0; seed < 50; seed++) expect('LAUREL STREET'.includes(decoyFor('LAUREL STREET', seed))).toBe(false);
+  });
+  it('typing a whole word skips over hint-locked slots', () => {
+    const locked = [true, false, false, false, false, false];
+    expect(typedSkipsLocked('LAUREL', locked, 0, 'L')).toBe(true);
+    expect(typedSkipsLocked('LAUREL', locked, 0, 'A')).toBe(false);
+    expect(typedSkipsLocked('LAUREL', locked, 1, 'A')).toBe(false);
+    expect(typedSkipsLocked('LAUREL', locked, -1, 'L')).toBe(false);
   });
 });
 
