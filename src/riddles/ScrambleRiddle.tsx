@@ -58,26 +58,32 @@ export function ScrambleRiddle({ riddle, hinted, paused, solved, judge, head, fo
     }
   };
 
+  /** where typing resumes: from the start (stepping over hint letters) if the player has placed nothing yet,
+   *  otherwise right after the first empty slot's position */
+  const resumePtr = (slots: (number | null)[], locked: boolean[]) =>
+    slots.some((t, i) => t !== null && !locked[i]) ? slots.findIndex((t) => t === null) : 0;
+
   /** put `tile` into slot `at` (default: first free slot); a tile already in another slot moves */
   const place = (tile: number, at?: number) => {
     if (offRef.current) return;
-    typePtr.current = -1;
     const { slots: s0, locked: l } = stateRef.current;
     const s = s0.map((t) => (t === tile ? null : t));
     const idx = at ?? s.findIndex((t) => t === null);
     if (idx < 0 || l[idx] || (s0.indexOf(tile) >= 0 && l[s0.indexOf(tile)])) return;
     s[idx] = tile;
     commit(s, l);
+    typePtr.current = resumePtr(s, l);
   };
   const unplace = (slot: number) => {
     if (offRef.current) return;
     const { slots: s0, locked: l } = stateRef.current;
     if (s0[slot] === null || l[slot]) return;
-    commit(s0.map((t, i) => (i === slot ? null : t)), l);
+    const s = s0.map((t, i) => (i === slot ? null : t));
+    commit(s, l);
+    typePtr.current = resumePtr(s, l);
   };
   const undo = () => {
     if (offRef.current) return;
-    typePtr.current = -1;
     const { slots: s0, locked: l } = stateRef.current;
     for (let i = s0.length - 1; i >= 0; i--) if (s0[i] !== null && !l[i]) { unplace(i); return; }
   };
