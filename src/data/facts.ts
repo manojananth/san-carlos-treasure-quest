@@ -18,7 +18,7 @@ export const FACTS: Fact[] = [
   {
     id: 'depot-builder',
     text: 'The railroad that built the San Carlos depot was the Southern Pacific.',
-    quiz: { q: 'Which railroad built the depot?', choices: ['Pony Express', 'Southern Pacific', 'Sea Tram'], answer: 1, decoy: 'Gold Rush Express' },
+    quiz: { q: 'Which railroad built the depot?', choices: ['Pony Express', 'Southern Pacific', 'Union Pacific'], answer: 1, decoy: 'Gold Rush Express' },
   },
   {
     id: 'incorporated',
@@ -28,7 +28,7 @@ export const FACTS: Fact[] = [
   {
     id: 'nickname',
     text: 'San Carlos is nicknamed the "City of Good Living".',
-    quiz: { q: 'What is the nickname of San Carlos?', choices: ['City of Good Living', 'City of Lost Ships', 'Rocket Town'], answer: 0, decoy: 'Hilltop Harbor' },
+    quiz: { q: 'What is the nickname of San Carlos?', choices: ['City of Good Living', 'City of Lost Ships', 'City of Trees'], answer: 0, decoy: 'Hilltop Harbor' },
   },
   {
     id: 'caltrain',
@@ -38,12 +38,12 @@ export const FACTS: Fact[] = [
   {
     id: 'hills-west',
     text: 'The hills of San Carlos rise to the west of downtown.',
-    quiz: { q: 'In which direction are the hills from downtown San Carlos?', choices: ['West', 'East', 'They are underwater'], answer: 0, decoy: 'South' },
+    quiz: { q: 'In which direction are the hills from downtown San Carlos?', choices: ['West', 'East', 'North'], answer: 0, decoy: 'South' },
   },
   {
     id: 'bay-east',
     text: 'San Francisco Bay lies to the east of San Carlos.',
-    quiz: { q: 'Which way would you look from the hills to see the Bay?', choices: ['West', 'East', 'Straight down'], answer: 1, decoy: 'North' },
+    quiz: { q: 'Which way would you look from the hills to see the Bay?', choices: ['West', 'East', 'South'], answer: 1, decoy: 'North' },
   },
   {
     id: 'hiller-flight',
@@ -73,7 +73,7 @@ export const FACTS: Fact[] = [
   {
     id: 'compass',
     text: 'A compass rose on a map shows the four directions: north, east, south and west.',
-    quiz: { q: 'Which is NOT one of the four main directions?', choices: ['North', 'Up-ish', 'South'], answer: 1, decoy: 'East' },
+    quiz: { q: 'Which is NOT one of the four main directions?', choices: ['North', 'Northeast', 'South'], answer: 1, decoy: 'East' },
   },
   {
     id: 'library-card',
