@@ -6,7 +6,7 @@ import { hatColor } from './data/hats';
 import { getRiddle } from './data/riddles';
 import { GAMES } from './games/registry';
 import { sfx } from './audio/sfx';
-import { buzz } from './audio/haptics';
+import { buzzTap } from './audio/haptics';
 import { GameProvider, useGame } from './state/GameContext';
 import { activeProfile, nextStopId, returnLegKey, stopIndex } from './state/reducer';
 import { DIFFICULTY, MAIN_STOPS, badgeName, treasureXp } from './state/rules';
@@ -132,10 +132,9 @@ function Game() {
     if (!r || r.phase !== 'travel' || busy) return;
     const from = stopIndex(r.at), to = r.unlocked.length - 1;
     dispatch({ type: 'startWalk' });
-    sfx('step');
     const ok = (await mapRef.current?.walk(from, to)) ?? false;
     dispatch(ok ? { type: 'arrive', now: Date.now() } : { type: 'cancelWalk' });
-    if (ok) buzz(20);
+    if (ok) buzzTap();
   }, [busy, dispatch]);
 
   const walkBack = useCallback(async () => {
@@ -143,10 +142,9 @@ function Game() {
     if (!r || r.phase !== 'finale' || r.finaleStep !== 'return' || busy) return;
     const from = stopIndex(r.at);
     dispatch({ type: 'startFinaleWalk' });
-    sfx('step');
     const ok = (await mapRef.current?.walk(from, 0)) ?? false;
     dispatch(ok ? { type: 'arriveDepot' } : { type: 'cancelFinaleWalk' });
-    if (ok) buzz(20);
+    if (ok) buzzTap();
   }, [busy, dispatch]);
 
   // close the menu if the player/run changes under it

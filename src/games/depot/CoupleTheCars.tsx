@@ -8,6 +8,7 @@ import {
 import type { ShellApi } from '../kit';
 import { CAR_H, CAR_NAMES, CAR_W, CarArt, GOLD, INK, LOCO_W, LocoArt, PAPER, RED, TEAL, TEAL_DARK } from './trainArt';
 import type { CarKind } from './trainArt';
+import { sfx } from '../../audio/sfx';
 import './CoupleTheCars.css';
 
 // ---------------------------------------------------------------- level data
@@ -248,6 +249,7 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
     killTweensOf(el);
     const { x, y } = slotPos(slot);
     feedback.hit();
+    sfx('clank');
     setStatus(`${CAR_NAMES[kind]} coupled in slot ${slot + 1}.`);
     const done = placedRef.current >= n;
     if (done) setLocked(true);

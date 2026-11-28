@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react';
 import { Sheet } from './Sheet';
+import { sfx } from '../audio/sfx';
 import '../finale/finale.css';
 import { STOPS } from '../data/stops';
 import { BADGES, treasureXp, DIFFICULTY } from '../state/rules';
@@ -12,6 +14,13 @@ export function SummaryCard({ profile, run, onLeaderboard, onAgain, onSwitch }: 
   const rows = STOPS.filter((s) => !s.bonus || run.stars[s.id] !== undefined);
   const stars = totalStars(run);
   const bonus = treasureXp(DIFFICULTY[profile.difficulty].xpMult);
+  // the chest already cheered; a new best gets one fanfare when the summary first appears
+  const played = useRef(false);
+  useEffect(() => {
+    if (played.current) return;
+    played.current = true;
+    if (run.newBest) sfx('fanfare');
+  }, [run.newBest]);
   const earned = run.earned.map((id) => BADGES.find((b) => b.id === id)).filter((b): b is (typeof BADGES)[number] => !!b);
   return (
     <Sheet title={run.treasure ? 'Treasure found' : 'Quest complete'} solid heading={run.treasure ? <>Treasure <span>found!</span></> : <>Quest <span>complete!</span></>} className="summary">

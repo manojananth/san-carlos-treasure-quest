@@ -7,6 +7,8 @@ import type { LonLat } from '../data/stops';
 import { STYLE_URL, addTerrain, addTrailLayers, legFilter, tidyBaseMap } from './style';
 import { Explorer, prefersReducedMotion } from './explorer';
 import { cumulative } from './geo';
+import { sfx } from '../audio/sfx';
+
 
 type Leg = { from: string; to: string; coords: LonLat[]; lengthM: number };
 const ROUTES = routesJson as unknown as GeoJSON.FeatureCollection<GeoJSON.LineString>;
@@ -287,8 +289,11 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
       if (gen !== genRef.current) return false; // reset happened while the camera was moving
 
       let lastDraw = -Infinity;
+      let lastStep = 0;
       const ok = await ex.walk(leg.coords, (p, travelled) => {
         map.jumpTo({ center: p });
+        // a footstep about every 40 m (sfx itself throttles repeats)
+        if (travelled - lastStep >= 40) { lastStep = travelled; sfx('step'); }
         // draw the walked part of this leg solid, at most every 100 ms (always on the final frame)
         const now = performance.now();
         const final = travelled >= totalM;
@@ -334,6 +339,7 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
         map.jumpTo({ center: target, zoom: 16, pitch: 62 });
       } else {
         const arrived = moveEnd(map, 4500);
+        sfx('whoosh');
         map.flyTo({ center: target, zoom: 16, pitch: 62, duration: 2000 });
         await arrived;
       }

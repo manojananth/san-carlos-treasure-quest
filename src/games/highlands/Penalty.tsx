@@ -6,6 +6,7 @@ import { MiniGameShell, Stage, clientToStage, feedback, usePausableTimeline, use
 import type { ShellApi } from '../kit';
 import { GOLD, GRASS, GRASS_DARK, INK, PAPER, RED, RED_DARK, TEAL, TEAL_DARK, clamp, lerp, starsForGoals } from '../sports/theme';
 import { useConfetti } from '../sports/confetti';
+import { sfx } from '../../audio/sfx';
 import { Pips } from '../sports/Pips';
 import '../sports/sports.css';
 import './Penalty.css';
@@ -257,6 +258,7 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
     const tx = clamp(tx0, 56, 344);
     const ty = clamp(ty0, 72, 186);
     setModeBoth('fly');
+    sfx('kick');
     setReticle(null);
     setShowHint(false);
     dragStart.current = null;

@@ -101,7 +101,7 @@ Star Collector (≥15 stars in a run), Sky High (bonus stop), Trailblazer (finis
 ## UI (React, mobile-first)
 ProfileScreen (≤4 cards with avatar + name + XP, create with name + pick one of 6 hat colours, delete with confirm),
 HUD (avatar, XP counter that ticks with GSAP, star total, fragments x/6, menu button), StoryCard, StopCard
-(arrival + "Start challenge"), PlaceholderChallenge (tap 10 gold coins before time runs out; stars by time; uses
+(arrival + "Start challenge"), placeholder coin-tap challenge (removed in M4) (tap 10 gold coins before time runs out; stars by time; uses
 timeScale), RiddleCard (question, 3 big choices, hint button showing cost, timer bar), UnlockToast,
 SummaryCard, Menu sheet (difficulty, badges, leaderboard, switch player, restart run), Leaderboard (profiles on
 this device by best XP, stars, badges). Focus management + Esc closes sheets; all buttons ≥ 44 px.
