@@ -184,3 +184,15 @@ Never fail with 0 stars: a finished attempt earns at least 1.
   follow a separate "Vibration" toggle in the menu (default on), stored in `settings.haptics`.
 - Reduced-motion audit across the whole app (map flights, walks, XP ticker, toasts, sheets, all games, finale).
 - README: how to play, controls, credits/attributions, dev scripts.
+
+### M4 finale implementation notes
+- Run phase `finale` with `finaleStep`: `return` (card) -> `walking` -> `puzzle` -> `chest` -> `done` (chest open, XP paid) -> phase `summary`.
+  Actions: `startFinaleWalk`, `cancelFinaleWalk`, `arriveDepot`, `puzzleSolved`, `openChest`, `showSummary`. Finishing the last stop (or `skipBonus`) now
+  enters the finale; `finishedAt`, best, Trailblazer / No Peeking / Legend and the new Treasure Finder badge are awarded at `openChest`
+  (`Run.treasure`, `Run.newBest`). Treasure XP = round(100 x multiplier), once.
+- Reload mid-finale: a walk in flight resumes at the `return` card (explorer back at the stop it left); `puzzle` and `chest` resume as they were
+  (the puzzle itself restarts); `done` resumes at the summary. A finale save without all six fragments is dropped.
+- The return leg (`highlands>depot` or `hiller>depot`) joins the trail legs when the finale starts.
+- Timed riddles persist their clock: `RiddleState.deadlineAt` (running) / `remainingMs` (paused by the menu) via the `riddleClock` action; on
+  reload the timer resumes (min 5 s grace, never above full). The M2 known gap is closed.
+- Code: `src/finale/` (puzzle.ts logic, mapArt.tsx, FragmentPuzzle, TreasureChest, Confetti, ReturnCard); final summary is `components/SummaryCard.tsx`.
