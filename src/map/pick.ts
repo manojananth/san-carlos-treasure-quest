@@ -60,13 +60,15 @@ export function startPick(map: maplibregl.Map, opts: PickOptions): PickHandle {
   canvas.style.cursor = 'crosshair';
 
   const reduced = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (opts.frame !== false) {
+  // framed a moment later so it wins over App's restore() when a reload shows the riddle before the map is ready
+  const frameTimer = opts.frame === false ? 0 : window.setTimeout(() => {
+    if (!live) return;
     map.stop();
     map.fitBounds(BOUNDS, {
       padding: { top: opts.padding?.top ?? 90, bottom: opts.padding?.bottom ?? 190, left: opts.padding?.left ?? 24, right: opts.padding?.right ?? 24 },
       pitch: 0, bearing: 0, maxZoom: 14.6, animate: !reduced, duration: 900,
     });
-  }
+  }, 150);
 
   const draw = () => { if (live && opts.hintCircle) drawHint(map, opts.hintCircle); };
   if (opts.hintCircle) {
@@ -86,6 +88,7 @@ export function startPick(map: maplibregl.Map, opts: PickOptions): PickHandle {
   const cancel = (() => {
     if (!live) return;
     live = false;
+    window.clearTimeout(frameTimer);
     map.off('click', onClick);
     pin?.remove();
     pin = null;

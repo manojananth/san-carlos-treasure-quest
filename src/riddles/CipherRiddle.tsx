@@ -65,8 +65,8 @@ export function CipherRiddle({ riddle, hinted, wrong, paused, solved, judge, hea
       head={head}
       foot={foot}
       visual={
-        <div className="cipher-visual">
         <div className="cipher-wheel">
+          <button type="button" className="btn btn-plain wheel-btn" aria-label="Turn wheel back one letter" disabled={locked} onClick={() => turn(-1)}>←</button>
           <svg
             ref={svg}
             viewBox="0 0 200 200"
@@ -95,21 +95,19 @@ export function CipherRiddle({ riddle, hinted, wrong, paused, solved, judge, hea
             <circle cx="100" cy="100" r="24" className="wheel-hub" />
             <text x="100" y="100" textAnchor="middle" dominantBaseline="central" className="wheel-num">{w}</text>
           </svg>
-          <div className="wheel-btns">
-            <button type="button" className="btn btn-plain wheel-btn" aria-label="Turn wheel back one letter" disabled={locked} onClick={() => turn(-1)}>←</button>
-            <button type="button" className="btn btn-plain wheel-btn" aria-label="Turn wheel forward one letter" disabled={locked} onClick={() => turn(1)}>→</button>
-          </div>
+          <button type="button" className="btn btn-plain wheel-btn" aria-label="Turn wheel forward one letter" disabled={locked} onClick={() => turn(1)}>→</button>
         </div>
-        <div className="telegram" aria-live="off">
+      }
+      answer={
+        <>
+          <div className="telegram" aria-live="off">
           <small>Telegram{riddle.clue ? ` · shift ${riddle.shift}` : ''}</small>
           <code className="tele-in">{riddle.encoded}</code>
           <small>Wheel reads</small>
           <code className="tele-out">{reads}</code>
         </div>
-        </div>
-      }
-      answer={
-        <div className="choices cipher-options" role="group" aria-label="Which stop is the telegram about?">
+
+          <div className="choices cipher-options" role="group" aria-label="Which stop is the telegram about?">
             {riddle.options.map((c, i) => (
               <button
                 key={c}
@@ -123,6 +121,7 @@ export function CipherRiddle({ riddle, hinted, wrong, paused, solved, judge, hea
               </button>
             ))}
           </div>
+        </>
       }
     />
   );

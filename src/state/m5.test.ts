@@ -38,8 +38,8 @@ describe('Treasure Hunter rules', () => {
     const hinted = reducer(challenge(create(), 3), { type: 'useHint' });
     expect(R(hinted).xp).toBe(90);
   });
-  it('the expert tier falls back to hard riddle text', () => {
-    expect(getRiddle('laurel', 'expert')).toBe(getRiddle('laurel', 'hard'));
+  it('the expert tier has its own riddles', () => {
+    expect(getRiddle('laurel', 'expert')?.tier).toBe('expert');
     expect(getRiddle('depot', 'expert')).toBeNull();
   });
   it('awards Master Treasure Hunter for a pure hunter run, not for a mixed one, not for Legend', () => {
