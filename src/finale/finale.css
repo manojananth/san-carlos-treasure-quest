@@ -26,6 +26,8 @@
 .fp-piece:focus:not(:focus-visible):not(.picked) .fp-ring { opacity: 0; }
 .fp-piece.picked .fp-ring { stroke: var(--red); stroke-dasharray: 8 5; }
 .fp-piece.placed { pointer-events: none; }
+.fp-rot { cursor: pointer; }
+.fp-rot:hover circle:nth-child(2) { fill: #ffd25e; }
 
 .confetti { position: fixed; inset: 0; z-index: 70; pointer-events: none; }
 

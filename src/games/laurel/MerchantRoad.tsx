@@ -6,7 +6,7 @@ import {
   MiniGameShell, Stage, clientToStage, feedback, starsFor, useCountdown, usePausableClock, usePausableTimeline,
 } from '../kit';
 import type { ShellApi } from '../kit';
-import { HIDDEN, INK, ItemArt, ItemIcon, SceneBack, SceneFront } from './streetArt';
+import { HIDDEN, HIDDEN_HUNTER, INK, ItemArt, ItemIcon, SceneBack, SceneFront } from './streetArt';
 import type { ItemKind } from './streetArt';
 import './MerchantRoad.css';
 
@@ -16,25 +16,37 @@ import './MerchantRoad.css';
  *   part 2 points = reaction under 300 ms -> 2, under 450 ms -> 1, slower / jump-started twice / no tap -> 0     (0-2)
  *   score = part 1 + part 2 (0-8);  starsFor(score, [4, 7]):  7-8 -> 3 stars, 4-6 -> 2 stars, otherwise 1 star.
  * A finished attempt always earns at least 1 star.
+ *
+ * TREASURE HUNTER (7 items incl. 2 tiny ones, lights-out best of 2):
+ *   part 1 points = items found (0-7) + 1 bonus point if all 7 were found with at least 30% of the time left        (0-8)
+ *   part 2 points = best of two starts: under 350 ms -> 3, under 450 ms -> 1, slower / jump-started / no tap -> 0     (0-3)
+ *   starsFor(score, [6, 10]): full marks (3 stars) needs a start under 350 ms plus nearly every item.
  */
-const STAR_SCORE: [number, number] = [4, 7];
-export function scoreFor(found: number, timeLeftFraction: number, reactionMs: number | null): number {
+const STAR_SCORE: Record<Difficulty, [number, number]> = { rookie: [4, 7], pro: [4, 7], legend: [4, 7], hunter: [6, 10] };
+export function scoreFor(found: number, timeLeftFraction: number, reactionMs: number | null, hunter = false): number {
+  if (hunter) {
+    const h1 = found + (found === HIDDEN_HUNTER.length && timeLeftFraction >= 0.3 ? 1 : 0);
+    const h2 = reactionMs === null ? 0 : reactionMs < 350 ? 3 : reactionMs < 450 ? 1 : 0;
+    return h1 + h2;
+  }
   const p1 = found + (found === 5 && timeLeftFraction >= 0.4 ? 1 : 0);
   const p2 = reactionMs === null ? 0 : reactionMs < 300 ? 2 : reactionMs < 450 ? 1 : 0;
   return p1 + p2;
 }
 
-const BASE_SECONDS = 40;
+const BASE_SECONDS: Record<Difficulty, number> = { rookie: 40, pro: 40, legend: 40, hunter: 55 };
 const W = 400;
 const H = 250;
 const HIT_R = 22; // game units; about 33 px on a 390 px phone, invisible
+const HIT_R_TINY = 14; // Treasure Hunter's tiny items
 const HINT_AFTER_MS = 15000; // Rookie sparkle
-const PENALTY_MS: Record<Difficulty, number> = { rookie: 0, pro: 1500, legend: 2500 };
+const PENALTY_MS: Record<Difficulty, number> = { rookie: 0, pro: 1500, legend: 2500, hunter: 3000 };
 
 const GOALS: Record<Difficulty, string> = {
   rookie: 'Part 1: find the 5 hidden treasures on Merchant Road and tap them. Part 2: tap GO the moment the lights go out!',
   pro: 'Part 1: find the 5 hidden treasures. Wrong taps cost a little time. Part 2: tap GO the moment the lights go out!',
   legend: 'Part 1: find all 5 hidden treasures fast. Wrong taps cost time. Part 2: tap GO the instant the lights go out!',
+  hunter: 'Part 1: find 7 hidden treasures, two of them tiny! Wrong taps cost lots of time. Part 2: the lights go out twice. Your best start counts, and under 0.35 seconds earns full marks!',
 };
 
 function HowToDiagram() {
@@ -61,7 +73,9 @@ interface SpotResult { found: number; fractionLeft: number }
 function SpotPart({ difficulty, timeScale, api, onDone }: {
   difficulty: Difficulty; timeScale: number; api: ShellApi; onDone: (r: SpotResult) => void;
 }) {
-  const baseMs = BASE_SECONDS * 1000 * timeScale;
+  const items = difficulty === 'hunter' ? HIDDEN_HUNTER : HIDDEN;
+  const total = items.length;
+  const baseMs = BASE_SECONDS[difficulty] * 1000 * timeScale;
   const [found, setFound] = useState<ItemKind[]>([]);
   const [wrong, setWrong] = useState(0);
   const [penalty, setPenalty] = useState(0);
@@ -92,16 +106,16 @@ function SpotPart({ difficulty, timeScale, api, onDone }: {
 
   const elapsed = effTotal - remainingMs;
   const hint = difficulty === 'rookie' && !ending && elapsed - lastFindAt >= HINT_AFTER_MS
-    ? HIDDEN.find((h) => !found.includes(h.kind)) : undefined;
+    ? items.find((h) => !found.includes(h.kind)) : undefined;
 
   const tap = (x: number, y: number) => {
     if (!api.active || endingRef.current) return;
     let best: (typeof HIDDEN)[number] | null = null;
-    let bestD = HIT_R;
-    for (const h of HIDDEN) {
+    let bestD = Infinity;
+    for (const h of items) {
       if (foundRef.current.includes(h.kind)) continue;
       const d = Math.hypot(h.x - x, h.y - y);
-      if (d <= bestD) { best = h; bestD = d; }
+      if (d <= (h.tiny ? HIT_R_TINY : HIT_R) && d < bestD) { best = h; bestD = d; }
     }
     if (best) {
       const kind = best.kind;
@@ -109,13 +123,13 @@ function SpotPart({ difficulty, timeScale, api, onDone }: {
       setFound(foundRef.current);
       setLastFindAt(baseMs - getRemainingRef.current() - penalty);
       feedback.tick();
-      setStatus(`Found the ${best.label}. ${foundRef.current.length} of 5.`);
+      setStatus(`Found the ${best.label}. ${foundRef.current.length} of ${total}.`);
       const ring = ringEls.current[kind];
       if (ring && !reduced) {
         gsap.set(ring, { scale: 0.3 });
         tween(ring, { scale: 1, duration: 0.35, ease: 'back.out(2)' });
       }
-      if (foundRef.current.length === 5) {
+      if (foundRef.current.length === total) {
         endingRef.current = true;
         setEnding(true);
         const left = getRemainingRef.current() / baseMs;
@@ -171,23 +185,23 @@ function SpotPart({ difficulty, timeScale, api, onDone }: {
     <div className="lc-play lc-spot">
       <div className="mg-hud">
         <div className="mg-bar" aria-hidden="true"><div className={`mg-bar-fill${low ? ' low' : ''}`} style={{ width: `${(remainingMs / effTotal) * 100}%` }} /></div>
-        <span>{found.length}/5 found</span>
+        <span>{found.length}/{total} found</span>
         {difficulty !== 'rookie' && <span>Oops {wrong}</span>}
       </div>
       <div className="lc-row" data-paused={api.active ? undefined : ''}>
         <div className="lc-stage-wrap">
           <Stage
             ref={svgRef} width={W} height={H} className="lc-stage" onKeyDown={onKeyDown}
-            label="Merchant Road street scene with five hidden treasures. Use the arrow keys to move the magnifier and Enter to tap."
+            label={`Merchant Road street scene with ${total} hidden treasures. Use the arrow keys to move the magnifier and Enter to tap.`}
           >
             <SceneBack />
-            {HIDDEN.map((h) => (
+            {items.map((h) => (
               <g key={h.kind} transform={`translate(${h.x} ${h.y}) rotate(${h.rot})`}><ItemArt kind={h.kind} /></g>
             ))}
             <SceneFront />
-            {HIDDEN.map((h) => (
+            {items.map((h) => (
               <g key={h.kind} transform={`translate(${h.x} ${h.y})`} pointerEvents="none">
-                <circle ref={(el) => { ringEls.current[h.kind] = el; }} className={`lc-ring${found.includes(h.kind) ? ' on' : ''}`} r={13} />
+                <circle ref={(el) => { ringEls.current[h.kind] = el; }} className={`lc-ring${found.includes(h.kind) ? ' on' : ''}`} r={h.tiny ? 9 : 13} />
               </g>
             ))}
             {hint && (
@@ -208,7 +222,7 @@ function SpotPart({ difficulty, timeScale, api, onDone }: {
           </Stage>
         </div>
         <ul className="lc-list" aria-label="Treasures to find">
-          {HIDDEN.map((h) => {
+          {items.map((h) => {
             const ok = found.includes(h.kind);
             return (
               <li key={h.kind} className={ok ? 'done' : ''}>
@@ -229,7 +243,9 @@ function SpotPart({ difficulty, timeScale, api, onDone }: {
 // ------------------------------------------------------------------ part 2: lights out
 type LightsPhase = 'ready' | 'seq' | 'out' | 'jump' | 'result';
 
-function LightsPart({ api, onDone }: { api: ShellApi; onDone: (reactionMs: number | null) => void }) {
+function LightsPart({ api, rounds, onDone }: { api: ShellApi; rounds: number; onDone: (reactionMs: number | null) => void }) {
+  const [round, setRound] = useState(1);
+  const results = useRef<(number | null)[]>([]);
   const [phase, setPhase] = useState<LightsPhase>('ready');
   const [lit, setLit] = useState(0);
   const [msg, setMsg] = useState('Get ready…');
@@ -247,11 +263,21 @@ function LightsPart({ api, onDone }: { api: ShellApi; onDone: (reactionMs: numbe
     const g = gen.current;
     tween({}, { duration: sec, onComplete: () => { if (g === gen.current) fn(); } });
   }, [tween]);
+  const startSeqRef = useRef<() => void>(() => {});
+  /** one round is over; the best start of all rounds is reported after the last one */
   const finish = useCallback((ms: number | null) => {
     if (doneRef.current) return;
+    results.current.push(ms);
+    if (results.current.length < rounds) {
+      jumps.current = 0;
+      setRound(results.current.length + 1);
+      later(0.5, () => startSeqRef.current());
+      return;
+    }
     doneRef.current = true;
-    onDone(ms);
-  }, [onDone]);
+    const times = results.current.filter((t): t is number => t !== null);
+    onDone(times.length ? Math.min(...times) : null);
+  }, [later, onDone, rounds]);
 
   const startSeq = useCallback(() => {
     setLit(0);
@@ -275,8 +301,9 @@ function LightsPart({ api, onDone }: { api: ShellApi; onDone: (reactionMs: numbe
       step(1);
     });
   }, [finish, getElapsed, later]);
+  startSeqRef.current = startSeq;
 
-  useEffect(() => { startSeq(); }, [startSeq]);
+  useEffect(() => { startSeq(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const go = () => {
     if (!api.active) return;
@@ -322,7 +349,7 @@ function LightsPart({ api, onDone }: { api: ShellApi; onDone: (reactionMs: numbe
 
   return (
     <div className="lc-play lc-lights" data-paused={api.active ? undefined : ''}>
-      <div className="mg-hud"><span>Part 2 of 2: Lights Out</span>{jumps.current > 0 && phase !== 'result' && <span>Last try</span>}</div>
+      <div className="mg-hud"><span>Part 2 of 2: Lights Out{rounds > 1 ? ` (start ${round} of ${rounds})` : ''}</span>{jumps.current > 0 && phase !== 'result' && <span>Last try</span>}</div>
       <div className="lc-row">
         <div className="lc-stage-wrap">
           <Stage width={W} height={160} className="lc-gantry" label={`Starting lights: ${lit} of 5 on.`}>
@@ -366,15 +393,15 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
   const onSpot = useCallback((r: SpotResult) => { spot.current = r; setPart('lights'); }, []);
   const onLights = useCallback((ms: number | null) => {
     const { found, fractionLeft } = spot.current;
-    const stars = starsFor(scoreFor(found, fractionLeft, ms), STAR_SCORE);
-    const react = ms === null ? 'No reaction time this round.' : `Reaction ${ms} ms.`;
-    api.finish(stars, `${found} of 5 treasures found. ${react}`);
+    const stars = starsFor(scoreFor(found, fractionLeft, ms, difficulty === 'hunter'), STAR_SCORE[difficulty]);
+    const react = ms === null ? 'No reaction time this round.' : `${difficulty === 'hunter' ? 'Best start' : 'Reaction'} ${ms} ms.`;
+    api.finish(stars, `${found} of ${difficulty === 'hunter' ? HIDDEN_HUNTER.length : 5} treasures found. ${react}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api.finish]);
+  }, [api.finish, difficulty]);
 
   return part === 'spot'
     ? <SpotPart difficulty={difficulty} timeScale={timeScale} api={api} onDone={onSpot} />
-    : <LightsPart api={api} onDone={onLights} />;
+    : <LightsPart api={api} rounds={difficulty === 'hunter' ? 2 : 1} onDone={onLights} />;
 }
 
 /** Laurel Street, Merchant Road: spot 5 hidden treasures, then a lights-out reaction test. */

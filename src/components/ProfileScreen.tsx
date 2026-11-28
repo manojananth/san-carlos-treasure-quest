@@ -18,6 +18,7 @@ const DIFF_BLURB: Record<Difficulty, string> = {
   rookie: 'Easy riddles, no timer',
   pro: 'Medium riddles, 60 s timer',
   legend: 'Tricky riddles, 35 s timer',
+  hunter: 'Expert riddles, 25 s, tough games',
 };
 
 export function ProfileScreen({ profiles, onPick, onCreate, onDelete, onLeaderboard }: Props) {

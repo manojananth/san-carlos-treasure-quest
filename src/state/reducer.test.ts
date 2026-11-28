@@ -18,8 +18,9 @@ const tierOf = (d: Difficulty) => (d === 'rookie' ? 'easy' : d === 'pro' ? 'medi
 const challenge = (s: GameState, stars: Stars = 3) =>
   run(s, ...(R(s).phase === 'intro' ? [{ type: 'continueIntro' } as Action] : []), { type: 'finishChallenge', stars, now: T });
 const correctChoice = (s: GameState) => RIDDLES[nextStopId(R(s))! as keyof typeof RIDDLES][tierOf(P(s).difficulty)].answer;
-const solve = (s: GameState) => reducer(s, { type: 'answerRiddle', choice: correctChoice(s) });
+const solve = (s: GameState) => reducer(s, { type: 'answerRiddle', correct: true, mark: String(correctChoice(s)) });
 const wrongChoice = (s: GameState) => ([0, 1, 2] as const).find((c) => c !== correctChoice(s))!;
+const wrongAns = (c: number): Action => ({ type: 'answerRiddle', correct: false, mark: String(c) });
 const walk = (s: GameState) => run(s, { type: 'startWalk' }, { type: 'arrive', now: T });
 /** finale: walk back, puzzle, open the chest, see the summary */
 const finale = (s: GameState) =>
@@ -62,17 +63,17 @@ describe('xp math', () => {
     const w = wrongChoice(base);
     const second = [0, 1, 2].find((c) => c !== w && c !== correctChoice(base))!;
     expect(R(solve(base)).xp).toBe(50);
-    const afterOne = reducer(base, { type: 'answerRiddle', choice: w });
+    const afterOne = reducer(base, wrongAns(w));
     expect(R(afterOne).xp).toBe(20);
     expect(R(solve(afterOne)).xp).toBe(35);
-    const afterTwo = reducer(afterOne, { type: 'answerRiddle', choice: second });
+    const afterTwo = reducer(afterOne, wrongAns(second));
     expect(R(solve(afterTwo)).xp).toBe(25);
   });
   it('a wrong choice cannot be picked twice and counts one try', () => {
     const s0 = challenge(create('rookie'));
     const w = wrongChoice(s0);
-    const s = run(s0, { type: 'answerRiddle', choice: w }, { type: 'answerRiddle', choice: w });
-    expect(R(s).riddles.laurel).toMatchObject({ tries: 1, wrong: [w], firstTry: false });
+    const s = run(s0, wrongAns(w), wrongAns(w));
+    expect(R(s).riddles.laurel).toMatchObject({ tries: 1, wrong: [String(w)], firstTry: false });
   });
   it('challenge pays stars x 20 x multiplier', () => {
     expect(R(challenge(create('rookie'), 2)).xp).toBe(40);
@@ -119,7 +120,7 @@ describe('flow and unlock order', () => {
   });
   it('ignores actions in the wrong phase', () => {
     const s = create();
-    expect(reducer(s, { type: 'answerRiddle', choice: 0 })).toBe(s);
+    expect(reducer(s, { type: 'answerRiddle', correct: true })).toBe(s);
     expect(reducer(s, { type: 'startWalk' })).toBe(s);
     expect(reducer(s, { type: 'finishChallenge', stars: 3, now: T })).toBe(s);
   });
@@ -191,7 +192,7 @@ describe('badges', () => {
     s = advance(s);
     s = advance(s);
     s = challenge(s);
-    s = reducer(s, { type: 'answerRiddle', choice: wrongChoice(s) });
+    s = reducer(s, wrongAns(wrongChoice(s)));
     s = solve(s);
     expect(P(s).badges).not.toContain('sharp-mind');
   });
@@ -223,7 +224,7 @@ describe('difficulty switching', () => {
   it('clears wrong answers on the pending riddle so it stays answerable', () => {
     let s = challenge(create('legend'));
     const w = ([0, 1, 2] as const).filter((c) => c !== correctChoice(s));
-    for (const c of w) s = reducer(s, { type: 'answerRiddle', choice: c });
+    for (const c of w) s = reducer(s, wrongAns(c));
     expect(R(s).riddles.laurel?.wrong).toHaveLength(2);
     s = reducer(s, { type: 'setDifficulty', difficulty: 'pro' });
     expect(R(s).riddles.laurel?.wrong).toEqual([]);

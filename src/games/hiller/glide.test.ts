@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NUDGES, RINGS, WALL_X, distanceM, launch, nudge, previewPath, ringCount, scoreOf, simulate, stepGlide } from './glide';
+import { BOB_AMP, BOB_Y, NUDGES, RINGS, WALL_X, ringY, distanceM, launch, nudge, previewPath, ringCount, scoreOf, simulate, stepGlide } from './glide';
 
 describe('paper plane glide', () => {
   it('a flat, strong throw flies far and threads all three rings', () => {
@@ -60,5 +60,24 @@ describe('paper plane glide', () => {
     const p = previewPath(20, 0.7, 1);
     expect(p.length).toBeGreaterThan(5);
     expect(p[0].x).toBeLessThan(p[p.length - 1].x);
+  });
+  it('Treasure Hunter has no updrafts and the rings bob around fixed heights', () => {
+    expect(NUDGES.hunter).toBe(0);
+    expect(nudge(launch(10, 0.8, NUDGES.hunter, 0))).toBe(false);
+    for (let i = 0; i < RINGS.length; i++) {
+      expect(ringY(i, null)).toBe(RINGS[i].y);
+      const ys = Array.from({ length: 60 }, (_, k) => ringY(i, k * 0.05));
+      expect(Math.max(...ys)).toBeGreaterThan(BOB_Y[i] + BOB_AMP - 2);
+      expect(Math.min(...ys)).toBeLessThan(BOB_Y[i] - BOB_AMP + 2);
+      expect(Math.max(...ys) + 19).toBeLessThan(214); // the lowest ring still hangs above the floor
+    }
+  });
+  it('a bobbing ring only counts when the plane meets it at the right moment', () => {
+    // same throw, different bob phase at launch: some phases thread all three rings, others miss some
+    const counts = [0, 0.4, 0.8, 1.2, 1.6, 2.0, 2.4].map((c) => ringCount(simulate(10, 1, 0, [], c)));
+    expect(Math.max(...counts)).toBe(3);
+    expect(Math.min(...counts)).toBeLessThan(3);
+    // without bobbing the phase is irrelevant
+    expect(new Set([0, 1].map(() => ringCount(simulate(10, 1)))).size).toBe(1);
   });
 });

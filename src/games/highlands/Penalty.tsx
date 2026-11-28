@@ -24,6 +24,14 @@ const ZW = (GX1 - GX0) / 3;
 const ZH = (GY1 - GY0) / 2;
 const ZONE_NAMES = ['top left', 'top middle', 'top right', 'bottom left', 'bottom middle', 'bottom right'];
 const zoneCentre = (i: number) => ({ x: GX0 + ZW * ((i % 3) + 0.5), y: GY0 + ZH * (Math.floor(i / 3) + 0.5) });
+/** target zone rectangle; `edge` insets the zones that touch a post or the crossbar */
+const zoneRect = (i: number, edge: number) => {
+  const col = i % 3, row = Math.floor(i / 3);
+  const x0 = GX0 + ZW * col + (col === 0 ? edge : 3);
+  const x1 = GX0 + ZW * (col + 1) - (col === 2 ? edge : 3);
+  const y0 = GY0 + ZH * row + (row === 0 ? edge : 3);
+  return { x: x0, y: y0, width: x1 - x0, height: GY0 + ZH * (row + 1) - 3 - y0 };
+};
 const GOALIE_HOME = { x: 200, y: 166 };
 
 interface Dive { sx: number; ey: number; rot: number; high: boolean }
@@ -35,11 +43,16 @@ const DIVES: Dive[] = [
   { sx: 0, ey: 150, rot: 0, high: true },
 ];
 /** chance a goalie reads the shot instead of trusting his own guess, per difficulty */
-const READ: Record<Difficulty, number> = { rookie: 0, pro: 0.2, legend: 0.3 };
+const READ: Record<Difficulty, number> = { rookie: 0, pro: 0.2, legend: 0.3, hunter: 0.45 };
+/** how long the lean lasts, relative to the base hold (Treasure Hunter: half) */
+const TELL: Record<Difficulty, number> = { rookie: 1, pro: 1, legend: 1, hunter: 0.5 };
+/** shots this close to a post or the bar are wide / over; Treasure Hunter narrows the corners */
+const EDGE: Record<Difficulty, number> = { rookie: 3, pro: 3, legend: 3, hunter: 13 };
 const GOALS: Record<Difficulty, string> = {
   rookie: 'Drag from the ball to a spot in the goal and let go, or tap a spot. Beat the goalie! Watch him lean.',
   pro: 'Drag from the ball to a spot in the goal, or tap one. The goalie leans before he dives. Spot the tell!',
   legend: 'Quick goalie, short tell, shot clock! Drag or tap a spot in the goal and score.',
+  hunter: 'The goalie often reads your shot, his tell is blink-and-miss, and the corners are tight. Pick your spot and score!',
 };
 const MSG = {
   goal: ['GOAL!', 'Nice shot, right past the goalie!'],
@@ -224,7 +237,7 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
     setBar(1);
     // the tell: the goalie leans toward his dive side for a short while, then settles again
     const tellAt = (0.7 + Math.random() * 1.1) * timeScale;
-    const hold = 1.5 * timeScale;
+    const hold = 1.5 * timeScale * TELL[difficulty];
     tween(wait.current, {
       duration: tellAt,
       onComplete: () => {
@@ -248,7 +261,7 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
       onUpdate: () => setBar(timerObj.current.f),
       onComplete: () => { if (tokenRef.current === token) shootRef.current(SPOT.x, 176, true); },
     });
-  }, [placeBall, renderGoalie, setBar, timeScale, tween]);
+  }, [difficulty, placeBall, renderGoalie, setBar, timeScale, tween]);
 
   // ---- take the shot
   const shoot = useCallback((tx0: number, ty0: number, weak = false) => {
@@ -298,8 +311,8 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
         let kind: Kind;
         // an idle shot-clock shot is never a goal
         if (weak) kind = 'saved';
-        else if (tx <= GX0 + 3 || tx >= GX1 - 3) kind = 'wide';
-        else if (ty <= GY0 + 3) kind = 'over';
+        else if (tx <= GX0 + EDGE[difficulty] || tx >= GX1 - EDGE[difficulty]) kind = 'wide';
+        else if (ty <= GY0 + EDGE[difficulty]) kind = 'over';
         else {
           const gx = GOALIE_HOME.x + decRef.current.sx * dv.p;
           const gy = GOALIE_HOME.y + (decRef.current.ey - GOALIE_HOME.y) * dv.p;
@@ -440,7 +453,7 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
           {ZONE_NAMES.map((n, i) => (
             <rect
               key={n} className={`pk-zone${aiming && kbUsed && kbZone === i ? ' kb' : ''}`}
-              x={GX0 + ZW * (i % 3) + 3} y={GY0 + ZH * Math.floor(i / 3) + 3} width={ZW - 6} height={ZH - 6} rx={6}
+              {...zoneRect(i, EDGE[difficulty])} rx={6}
               opacity={aiming ? 1 : 0.4}
             />
           ))}

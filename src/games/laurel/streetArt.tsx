@@ -8,9 +8,9 @@ const GOLD = '#f2b632';
 const GOLD_DARK = '#c98f12';
 const PAPER = '#fff7e3';
 
-export type ItemKind = 'coin' | 'compass' | 'ticket' | 'key' | 'lantern';
+export type ItemKind = 'coin' | 'compass' | 'ticket' | 'key' | 'lantern' | 'button' | 'pin';
 
-export interface Hidden { kind: ItemKind; label: string; x: number; y: number; rot: number }
+export interface Hidden { kind: ItemKind; label: string; x: number; y: number; rot: number; /** tiny items have a smaller tap area (Treasure Hunter) */ tiny?: boolean }
 
 /** stage is 400 x 250 game units; (x, y) is the item centre */
 export const HIDDEN: Hidden[] = [
@@ -19,6 +19,12 @@ export const HIDDEN: Hidden[] = [
   { kind: 'ticket', label: 'old train ticket', x: 231, y: 198, rot: -18 },
   { kind: 'key', label: 'brass key', x: 126, y: 120, rot: 35 },
   { kind: 'lantern', label: 'lantern', x: 376, y: 180, rot: 0 },
+];
+/** Treasure Hunter adds two tiny items: a brass button on the kerb and a ruby tie pin in the toy shop window */
+export const HIDDEN_HUNTER: Hidden[] = [
+  ...HIDDEN,
+  { kind: 'button', label: 'brass button', x: 99, y: 203, rot: 0, tiny: true },
+  { kind: 'pin', label: 'ruby tie pin', x: 313, y: 107, rot: 20, tiny: true },
 ];
 
 /** item art around (0,0), about 16 units wide */
@@ -63,6 +69,21 @@ export function ItemArt({ kind }: { kind: ItemKind }) {
           <path d="M5 0 v4 M8 0 v3" stroke={GOLD_DARK} strokeWidth={1.8} strokeLinecap="round" />
         </g>
       );
+    case 'button':
+      return (
+        <g>
+          <circle r={3.6} fill={GOLD} stroke={INK} strokeWidth={1.2} />
+          <circle r={1.7} fill="none" stroke={GOLD_DARK} strokeWidth={0.9} />
+        </g>
+      );
+    case 'pin':
+      return (
+        <g>
+          <path d="M-5 3.5 L3 -2.5" stroke={INK} strokeWidth={2.4} strokeLinecap="round" />
+          <path d="M-5 3.5 L3 -2.5" stroke="#c9d3dc" strokeWidth={1} strokeLinecap="round" />
+          <circle cx={4} cy={-3.2} r={2.6} fill={RED} stroke={INK} strokeWidth={1.1} />
+        </g>
+      );
     case 'lantern':
       return (
         <g>
@@ -79,7 +100,7 @@ export function ItemArt({ kind }: { kind: ItemKind }) {
 /** checklist icon */
 export function ItemIcon({ kind, size = 30 }: { kind: ItemKind; size?: number }) {
   return (
-    <svg viewBox="-11 -11 22 22" width={size} height={size} aria-hidden="true">
+    <svg viewBox={kind === 'button' || kind === 'pin' ? '-7 -7 14 14' : '-11 -11 22 22'} width={size} height={size} aria-hidden="true">
       <ItemArt kind={kind} />
     </svg>
   );

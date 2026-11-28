@@ -11,7 +11,8 @@ interface Props {
   state: RiddleState | undefined;
   difficulty: Difficulty;
   bonus: boolean;
-  onAnswer: (choice: number) => void;
+  /** the card judges the answer itself; `mark` names a wrong answer so it greys out and is not counted twice */
+  onAnswer: (correct: boolean, mark?: string) => void;
   onHint: () => void;
   onTimeout: () => void;
   onSkip?: () => void;
@@ -26,6 +27,7 @@ export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint,
   const tries = state?.tries ?? 0;
   const wrong = state?.wrong ?? [];
   const [good, setGood] = useState<number | null>(null);
+  const isWrong = (i: number) => wrong.includes(String(i));
   const [msg, setMsg] = useState('');
   const secs = rules.riddleSeconds;
   // seconds left on the current try; kept in a ref so pausing does not lose the count.
@@ -75,18 +77,18 @@ export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint,
   }, [secs, tries, good, paused]);
 
   const pick = (i: number) => {
-    if (good !== null || wrong.includes(i)) return;
+    if (good !== null || isWrong(i)) return;
     if (i === riddle.answer) {
       setGood(i);
       setMsg('Correct!');
       buzzCorrect();
       sfx('correct');
-      window.setTimeout(() => { if (mounted.current) answerRef.current(i); }, 700);
+      window.setTimeout(() => { if (mounted.current) answerRef.current(true, String(i)); }, 700);
     } else {
       setMsg('Not quite. Try again!');
       buzzWrong();
       sfx('wrong');
-      onAnswer(i);
+      onAnswer(false, String(i));
       // the picked button is about to become disabled and drop focus; move it to a remaining choice
       requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.riddle .choice:not([disabled])')?.focus());
     }
@@ -115,13 +117,13 @@ export function RiddleCard({ riddle, state, difficulty, bonus, onAnswer, onHint,
           <button
             key={c}
             type="button"
-            className={`choice${wrong.includes(i) ? ' wrong' : ''}${good === i ? ' right' : ''}`}
-            disabled={paused || wrong.includes(i) || (good !== null && good !== i)}
-            aria-disabled={wrong.includes(i) || undefined}
+            className={`choice${isWrong(i) ? ' wrong' : ''}${good === i ? ' right' : ''}`}
+            disabled={paused || isWrong(i) || (good !== null && good !== i)}
+            aria-disabled={isWrong(i) || undefined}
             onClick={() => pick(i)}
             data-autofocus={i === 0 ? '' : undefined}
           >
-            <span className="choice-mark" aria-hidden="true">{good === i ? '✓' : wrong.includes(i) ? '✗' : String.fromCharCode(65 + i)}</span>
+            <span className="choice-mark" aria-hidden="true">{good === i ? '✓' : isWrong(i) ? '✗' : String.fromCharCode(65 + i)}</span>
             {c}
           </button>
         ))}

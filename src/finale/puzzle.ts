@@ -81,3 +81,17 @@ export function trayOrder(rand: () => number = Math.random): number[] {
   if (order.every((p, i) => p === i)) order.push(order.shift() as number);
   return order;
 }
+
+/**
+ * Treasure Hunter: every piece starts turned a quarter, half or three-quarter turn (clockwise quarter turns, 1-3).
+ * A piece only counts once it sits in its slot AND is upright (0 quarter turns).
+ */
+export function startTurns(rand: () => number = Math.random): number[] {
+  return Array.from({ length: PIECES }, () => 1 + Math.min(2, Math.floor(rand() * 3)));
+}
+
+/** quarter turns of a piece after `turns` clockwise taps of its rotate button */
+export const quarterOf = (turns: number) => ((turns % 4) + 4) % 4;
+
+/** The map is done when every piece is in its slot and upright. */
+export const isSolved = (placed: boolean[], turns: number[]) => placed.every(Boolean) && turns.every((t) => quarterOf(t) === 0);

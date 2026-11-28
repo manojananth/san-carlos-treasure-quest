@@ -24,11 +24,22 @@ export const RING_R = 16;
 export interface Ring { x: number; y: number }
 export const RINGS: Ring[] = [{ x: 240, y: 100 }, { x: 430, y: 135 }, { x: 620, y: 185 }];
 
+/** Treasure Hunter: rings bob up and down around these heights (amplitude / period in seconds) */
+export const BOB_Y = [100, 130, 165];
+export const BOB_AMP = 22;
+export const BOB_PERIOD = 2.6;
+const BOB_PHASE = [0, 2.1, 4.2];
+/** height of ring `i` at bob-clock `clock` seconds; `clock === null` = the ring does not move */
+export const ringY = (i: number, clock: number | null): number =>
+  clock === null ? RINGS[i].y : BOB_Y[i] + BOB_AMP * Math.sin((2 * Math.PI * clock) / BOB_PERIOD + BOB_PHASE[i]);
+
 export interface Glide {
   x: number; y: number; vx: number; vy: number;
   t: number;
   mode: 'fly' | 'slide' | 'done';
   stalled: boolean;
+  /** bobbing rings: bob-clock value at launch (null = fixed rings); ring height uses ringT0 + t */
+  ringT0: number | null;
   /** rings flown through (true per ring) */
   rings: boolean[];
   nudges: number;
@@ -38,7 +49,8 @@ export interface Glide {
   events: string[];
 }
 
-export const NUDGES: Record<'rookie' | 'pro' | 'legend', number> = { rookie: 3, pro: 2, legend: 1 };
+/** updrafts per throw; Treasure Hunter has none (and bobbing rings instead) */
+export const NUDGES: Record<'rookie' | 'pro' | 'legend' | 'hunter', number> = { rookie: 3, pro: 2, legend: 1, hunter: 0 };
 
 const rad = (d: number) => (d * Math.PI) / 180;
 export const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
@@ -46,11 +58,11 @@ export const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a
 /** launch speed from pull power 0..1 */
 export const launchSpeed = (power: number) => 70 + 150 * clamp(power, 0, 1);
 
-export function launch(angleDeg: number, power: number, nudges: number): Glide {
+export function launch(angleDeg: number, power: number, nudges: number, ringT0: number | null = null): Glide {
   const a = rad(clamp(angleDeg, MIN_ANGLE, MAX_ANGLE));
   const v = launchSpeed(power);
   return {
-    x: ANCHOR.x, y: ANCHOR.y, vx: Math.cos(a) * v, vy: -Math.sin(a) * v, t: 0, mode: 'fly', stalled: false,
+    x: ANCHOR.x, y: ANCHOR.y, vx: Math.cos(a) * v, vy: -Math.sin(a) * v, t: 0, mode: 'fly', stalled: false, ringT0,
     rings: RINGS.map(() => false), nudges, fresh: [], events: [],
   };
 }
@@ -96,7 +108,7 @@ export function stepGlide(g: Glide, dt: number): void {
   RINGS.forEach((r, i) => {
     if (g.rings[i] || px >= r.x || g.x < r.x) return;
     const yy = py + ((g.y - py) * (r.x - px)) / Math.max(1e-6, g.x - px);
-    if (Math.abs(yy - r.y) <= RING_R) { g.rings[i] = true; g.fresh.push(i); }
+    if (Math.abs(yy - ringY(i, g.ringT0 === null ? null : g.ringT0 + g.t)) <= RING_R) { g.rings[i] = true; g.fresh.push(i); }
   });
   if (g.y < CEIL_Y) { g.y = CEIL_Y; g.vy = Math.max(g.vy, 25); }
   if (g.x >= WALL_X) { g.x = WALL_X; g.vx = 0; g.mode = 'slide'; g.events.push('crash'); }
@@ -123,8 +135,8 @@ export function previewPath(angleDeg: number, power: number, seconds: number, ev
 }
 
 /** plays a whole throw to the end with a simple policy (tests / tuning) */
-export function simulate(angleDeg: number, power: number, nudges = 0, nudgeAt: number[] = []): Glide {
-  const g = launch(angleDeg, power, nudges);
+export function simulate(angleDeg: number, power: number, nudges = 0, nudgeAt: number[] = [], ringT0: number | null = null): Glide {
+  const g = launch(angleDeg, power, nudges, ringT0);
   const ts = nudgeAt.slice();
   for (let i = 0; i < 60 * 60 && g.mode !== 'done'; i++) {
     if (ts.length && g.t >= ts[0]) { nudge(g); ts.shift(); }

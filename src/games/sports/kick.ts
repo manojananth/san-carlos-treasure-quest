@@ -27,13 +27,21 @@ export interface KickSim {
   outcome: KickOutcome;
 }
 
-/** yaw in degrees (+ = right), power 0..1, wind = sideways acceleration in yd/s^2 */
-export function simulate(yawDeg: number, power: number, wind: number, d: number): KickSim {
+/** Treasure Hunter gust: from sim time `at` (s) the sideways wind switches to `wind` */
+export interface Gust { at: number; wind: number }
+
+/** yaw in degrees (+ = right), power 0..1, wind = sideways acceleration in yd/s^2 (switches to `gust.wind` at `gust.at`) */
+export function simulate(yawDeg: number, power: number, wind: number, d: number, gust?: Gust): KickSim {
   const v = 13 + 14 * clamp(power, 0, 1);
   const vz = v * Math.cos(ELEV);
   const vy = v * Math.sin(ELEV);
   const vx = vz * Math.tan((clamp(yawDeg, -MAX_YAW, MAX_YAW) * Math.PI) / 180);
-  const pos = (t: number) => ({ x: vx * t + 0.5 * wind * t * t, y: Math.max(0, vy * t - 0.5 * G * t * t), z: vz * t });
+  const sideways = (t: number) => {
+    if (!gust || t <= gust.at) return vx * t + 0.5 * wind * t * t;
+    const u = t - gust.at;
+    return vx * gust.at + 0.5 * wind * gust.at * gust.at + (vx + wind * gust.at) * u + 0.5 * gust.wind * u * u;
+  };
+  const pos = (t: number) => ({ x: sideways(t), y: Math.max(0, vy * t - 0.5 * G * t * t), z: vz * t });
   const tc = d / vz;
   const tLand = (2 * vy) / G;
   const at = pos(tc);

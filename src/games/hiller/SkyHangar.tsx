@@ -4,7 +4,7 @@ import type { Difficulty } from '../../state/types';
 import { MiniGameShell, Stage, clientToStage, feedback, starsFor, useLoop, usePointerDrag } from '../kit';
 import type { ShellApi } from '../kit';
 import {
-  ANCHOR, MAX_ANGLE, MIN_ANGLE, NUDGES, RINGS, clamp, distanceM, launch, nudge, previewPath, ringCount, scoreOf, stepGlide,
+  ANCHOR, MAX_ANGLE, MIN_ANGLE, NUDGES, RINGS, clamp, distanceM, launch, nudge, previewPath, ringCount, ringY, scoreOf, stepGlide,
 } from './glide';
 import type { Glide } from './glide';
 import { Hangar, INK, PaperPlane, RingArt, WORLD_W } from './hangarArt';
@@ -19,7 +19,7 @@ const REST_SECONDS = 1.7;
 const STAR_SCORE: [number, number] = [150, 230]; // best of 3: metres + 25 per ring
 const MAX_CAM = WORLD_W - W - 40;
 /** how many seconds of the flight the aiming guide draws */
-const GUIDE: Record<Difficulty, number> = { rookie: 1.3, pro: 0.55, legend: 0 };
+const GUIDE: Record<Difficulty, number> = { rookie: 1.3, pro: 0.55, legend: 0, hunter: 0 };
 
 const HINT_AIM = 'Drag back and let go!';
 const HINT_FLY = 'Tap for an updraft!';
@@ -30,6 +30,7 @@ const GOALS: Record<Difficulty, string> = {
   rookie: 'Drag back to aim, let go to throw, tap for updrafts. Fly through the rings and land far away!',
   pro: 'Drag back and let go to throw. Tap for updrafts. Fly through the rings and land far!',
   legend: 'No guide dots and one updraft! Drag back, throw, and glide through the rings.',
+  hunter: 'No guide, no updrafts, and the rings bob up and down! Time your throw so the plane arrives when each ring is in the way.',
 };
 
 function HowToDiagram() {
@@ -65,6 +66,9 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
   const throwIdx = useRef(0);
   const scores = useRef<number[]>([]);
   const bestRef = useRef<{ score: number; dist: number; rings: number }>({ score: 0, dist: 0, rings: 0 });
+  const bob = difficulty === 'hunter'; // rings bob up and down (their clock runs with the game, so pausing freezes them)
+  const bobClock = useRef(0);
+  const ringEls = useRef<(SVGGElement | null)[]>([]);
   const nudgeLeft = useRef(NUDGES[difficulty]);
   const puffs = useRef<{ x: number; y: number; age: number }[]>([]);
   const trail = useRef<string[]>([]);
@@ -103,6 +107,7 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
     const a = aim.current;
     const ph = phase.current;
     worldRef.current?.setAttribute('transform', `translate(${(-cam.current).toFixed(1)} 0)`);
+    if (bob) RINGS.forEach((r, i) => ringEls.current[i]?.setAttribute('transform', `translate(0 ${(ringY(i, bobClock.current) - r.y).toFixed(1)})`));
 
     let px: number = ANCHOR.x;
     let py: number = ANCHOR.y;
@@ -171,7 +176,7 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
         hintBgRef.current?.setAttribute('width', String(w));
       }
     }
-  }, [difficulty, reduced]);
+  }, [difficulty, reduced, bob]);
 
   useLayoutEffect(() => { draw(); }, [draw]);
 
@@ -188,7 +193,7 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
     if (phase.current !== 'aim' || !apiRef.current.active) return;
     const a = aim.current;
     if (a.power < MIN_POWER) return;
-    glide.current = launch(a.angle, a.power, nudgeLeft.current);
+    glide.current = launch(a.angle, a.power, nudgeLeft.current, bob ? bobClock.current : null);
     phase.current = 'fly';
     trail.current = [`${ANCHOR.x},${ANCHOR.y}`];
     trailT.current = 0;
@@ -196,7 +201,7 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
     setBanner('');
     setStatus(`Throw ${throwIdx.current + 1}. Angle ${Math.round(a.angle)} degrees, power ${Math.round(a.power * 100)} percent.`);
     feedback.tick();
-  }, []);
+  }, [bob]);
 
   const doNudge = useCallback(() => {
     const g = glide.current;
@@ -215,6 +220,7 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
 
   const step = useCallback((dt: number) => {
     if (ended.current) return;
+    bobClock.current += dt;
     for (const p of puffs.current) p.age += dt;
     const g = glide.current;
     const ph = phase.current;
@@ -342,9 +348,11 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
       <div className="mg-hud hl-hud">
         <span>Throw {throwNo}/{THROWS}</span>
         <span>Best {best}</span>
-        <span className="hl-lift" aria-label={`${lifts} updrafts left`}>
-          Lift {Array.from({ length: NUDGES[difficulty] }, (_, i) => <span key={i} className={i < lifts ? '' : 'off'}>{'▲'}</span>)}
-        </span>
+        {NUDGES[difficulty] > 0 ? (
+          <span className="hl-lift" aria-label={`${lifts} updrafts left`}>
+            Lift {Array.from({ length: NUDGES[difficulty] }, (_, i) => <span key={i} className={i < lifts ? '' : 'off'}>{'▲'}</span>)}
+          </span>
+        ) : <span>Rings bob!</span>}
       </div>
       <div
         className="hl-field"
@@ -363,7 +371,7 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
                 <line x1={0} y1={0} x2={0} y2={-22} /><path d="M0 -22 L14 -17 L0 -12 Z" fill="#c8372d" /><text x={5} y={-16} fontFamily="'Lilita One', sans-serif" fontSize={8} fill="#fff7e3" stroke="none">{m.n}</text>
               </g>
             ))}
-            {RINGS.map((_, i) => <RingArt key={i} i={i} done={ringsDone[i]} />)}
+            {RINGS.map((_, i) => <g key={i} ref={(el) => { ringEls.current[i] = el; }}><RingArt i={i} done={ringsDone[i]} /></g>)}
             <polyline ref={trailRef} fill="none" stroke="#c8372d" strokeWidth={2.4} strokeDasharray="1 6" strokeLinecap="round" />
             <polyline ref={guideRef} fill="none" stroke="#1f8582" strokeWidth={3.2} strokeDasharray="1 7" strokeLinecap="round" />
             <path ref={bandRef} fill="none" stroke="#c8372d" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
@@ -387,7 +395,7 @@ function Play({ difficulty, api }: { difficulty: Difficulty; api: ShellApi }) {
           )}
         </Stage>
       </div>
-      <p className="hl-keys">Keyboard: arrows aim (up/down angle, left/right power), Space throws, then Space for an updraft.</p>
+      <p className="hl-keys">Keyboard: arrows aim (up/down angle, left/right power), Space throws{NUDGES[difficulty] > 0 ? ', then Space for an updraft' : ''}.</p>
       <div className="sr-only" role="status" aria-live="polite">{status}</div>
     </div>
   );

@@ -11,20 +11,28 @@ import './HallOfScrolls.css';
  * STARS: 5 of 5 correct -> 3 stars, 3 or 4 correct -> 2 stars, otherwise 1 star (starsFor(correct, [3, 5])).
  * Per-question time: 15 s x timeScale (Rookie 19.5 s, Pro 15 s, Legend 11.25 s). A timeout counts as wrong.
  */
-const QUESTIONS = 5;
+/**
+ * TREASURE HUNTER: 7 scrolls, 10 s each (fixed, not scaled), 4 choices (the facts' `decoy` is the extra wrong one);
+ * starsFor(correct, [4, 6]): 6 or 7 right -> 3 stars, 4 or 5 -> 2 stars.
+ */
+const QUESTIONS: Record<Difficulty, number> = { rookie: 5, pro: 5, legend: 5, hunter: 7 };
+const STAR_AT: Record<Difficulty, [number, number]> = { rookie: [3, 5], pro: [3, 5], legend: [3, 5], hunter: [4, 6] };
 const BASE_SECONDS = 15;
+const HUNTER_MS = 10000;
 const REVEAL_WRONG_S = 2;
 const REVEAL_RIGHT_S = 1;
 
 interface Question { q: string; choices: string[]; answer: number; fact: string }
 
 /** 5 random quiz facts; each question's choices are shuffled and the correct index is recomputed */
-function drawQuestions(): Question[] {
-  const pool = FACTS.filter((f) => f.quiz);
-  return shuffled(pool).slice(0, QUESTIONS).map((f) => {
+function drawQuestions(difficulty: Difficulty): Question[] {
+  const four = difficulty === 'hunter';
+  const pool = FACTS.filter((f) => f.quiz && (!four || f.quiz.decoy));
+  return shuffled(pool).slice(0, QUESTIONS[difficulty]).map((f) => {
     const quiz = f.quiz!;
-    const order = shuffled([0, 1, 2]);
-    return { q: quiz.q, choices: order.map((i) => quiz.choices[i]), answer: order.indexOf(quiz.answer), fact: f.text };
+    const all = four ? [...quiz.choices, quiz.decoy!] : [...quiz.choices];
+    const order = shuffled(all.map((_, i) => i));
+    return { q: quiz.q, choices: order.map((i) => all[i]), answer: order.indexOf(quiz.answer), fact: f.text };
   });
 }
 
@@ -32,6 +40,7 @@ const GOALS: Record<Difficulty, string> = {
   rookie: 'Read each scroll and pick the right answer. You get a little extra time. Keys 1, 2, 3 work too!',
   pro: 'Read each scroll and pick the right answer before the time runs out. Keys 1, 2, 3 work too!',
   legend: 'Five scrolls, a short clock. Pick the right answers fast! Keys 1, 2, 3 work too.',
+  hunter: 'Seven scrolls, four answers each, and only 10 seconds per scroll. Keys 1, 2, 3, 4 work too!',
 };
 
 function HowToDiagram() {
@@ -61,8 +70,9 @@ function TimerBar({ totalMs, paused, onEnd }: { totalMs: number; paused: boolean
 
 type Verdict = 'right' | 'wrong' | 'timeout';
 
-function Play({ timeScale, api }: { timeScale: number; api: ShellApi }) {
-  const questions = useMemo(drawQuestions, []);
+function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScale: number; api: ShellApi }) {
+  const QN = QUESTIONS[difficulty];
+  const questions = useMemo(() => drawQuestions(difficulty), [difficulty]);
   const [qi, setQi] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
@@ -76,7 +86,7 @@ function Play({ timeScale, api }: { timeScale: number; api: ShellApi }) {
   const reduced = api.reducedMotion;
   const { tween } = usePausableTimeline(!api.active);
   const q = questions[qi];
-  const totalMs = BASE_SECONDS * 1000 * timeScale;
+  const totalMs = difficulty === 'hunter' ? HUNTER_MS : BASE_SECONDS * 1000 * timeScale;
 
   // the scroll unrolls (reduced motion: a plain fade) before each question
   useLayoutEffect(() => {
@@ -117,9 +127,9 @@ function Play({ timeScale, api }: { timeScale: number; api: ShellApi }) {
     tween({}, {
       duration: v === 'right' ? REVEAL_RIGHT_S : REVEAL_WRONG_S,
       onComplete: () => {
-        if (qiRef.current + 1 >= QUESTIONS) {
-          const stars = starsFor(scoreRef.current, [3, 5]);
-          api.finish(stars, `${scoreRef.current} of ${QUESTIONS} scrolls answered right!`);
+        if (qiRef.current + 1 >= QN) {
+          const stars = starsFor(scoreRef.current, STAR_AT[difficulty]);
+          api.finish(stars, `${scoreRef.current} of ${QN} scrolls answered right!`);
         } else {
           qiRef.current += 1;
           verdictRef.current = null;
@@ -129,7 +139,7 @@ function Play({ timeScale, api }: { timeScale: number; api: ShellApi }) {
         }
       },
     });
-  }, [api, reduced, tween]);
+  }, [api, reduced, tween, QN, difficulty]);
 
   const settleRef = useRef(settle);
   settleRef.current = settle;
@@ -138,7 +148,8 @@ function Play({ timeScale, api }: { timeScale: number; api: ShellApi }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!api.active || e.ctrlKey || e.metaKey || e.altKey) return;
-      const n = ['1', '2', '3'].indexOf(e.key);
+      const n = ['1', '2', '3', '4'].indexOf(e.key);
+      if (n >= questions[qiRef.current].choices.length) return;
       if (n >= 0) { e.preventDefault(); settleRef.current(n === questions[qiRef.current].answer ? 'right' : 'wrong', n); }
     };
     window.addEventListener('keydown', onKey);
@@ -150,7 +161,7 @@ function Play({ timeScale, api }: { timeScale: number; api: ShellApi }) {
     <div className="ch-play" data-paused={api.active ? undefined : ''}>
       <div className="mg-hud">
         <TimerBar key={qi} totalMs={totalMs} paused={!api.active || verdict !== null} onEnd={() => settleRef.current('timeout', null)} />
-        <span>Scroll {qi + 1}/{QUESTIONS}</span>
+        <span>Scroll {qi + 1}/{QN}</span>
         <span>Seals {score}</span>
       </div>
       <div className="ch-scroll" ref={scrollRef}>
@@ -204,7 +215,7 @@ export function HallOfScrolls({ difficulty, timeScale, onFinish, paused = false 
   const diagram = useMemo(() => <HowToDiagram />, []);
   return (
     <MiniGameShell goal={GOALS[difficulty]} diagram={diagram} paused={paused} onFinish={onFinish}>
-      {(api) => <Play timeScale={timeScale} api={api} />}
+      {(api) => <Play difficulty={difficulty} timeScale={timeScale} api={api} />}
     </MiniGameShell>
   );
 }

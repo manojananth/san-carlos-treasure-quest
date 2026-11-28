@@ -1,7 +1,8 @@
 import type { StopId } from '../data/stops';
 import type { HatId } from '../data/hats';
+import type { GearSlot } from '../data/gear';
 
-export type Difficulty = 'rookie' | 'pro' | 'legend';
+export type Difficulty = 'rookie' | 'pro' | 'legend' | 'hunter';
 export type Phase = 'intro' | 'challenge' | 'riddle' | 'travel' | 'walking' | 'finale' | 'summary';
 /** Sub-steps of the `finale` phase. `done` = chest opened, waiting for the player to see the summary. */
 export type FinaleStep = 'return' | 'walking' | 'puzzle' | 'chest' | 'done';
@@ -14,15 +15,17 @@ export type BadgeId =
   | 'sky-high'
   | 'trailblazer'
   | 'legend'
-  | 'treasure-finder';
+  | 'treasure-finder'
+  | 'master-hunter'
+  | 'spike-collector';
 
 export interface RiddleState {
   tries: number;
   hinted: boolean;
   /** still true while no wrong answer / timeout happened */
   firstTry: boolean;
-  /** indexes of choices already ruled out */
-  wrong: number[];
+  /** marks already ruled out, as strings: choice index ("2"), tapped spot, guessed word... (old saves held numbers) */
+  wrong: string[];
   /** timed riddles: epoch ms when the current try runs out (set while the timer is running) */
   deadlineAt?: number;
   /** timed riddles: ms left on the current try while the timer is paused (menu open) */
@@ -45,6 +48,8 @@ export interface Run {
   /** badges earned during this run */
   earned: BadgeId[];
   startedAt: number;
+  /** picks riddles from a pool so replays differ while a reload stays stable (set when the run starts) */
+  seed: number;
   finishedAt?: number;
   /** difficulty was changed mid-run, so the Legend badge is not available */
   mixed?: boolean;
@@ -63,6 +68,12 @@ export interface Best {
   finishedAt: number;
 }
 
+export interface Gear {
+  /** owned catalog ids (src/data/gear.ts) */
+  owned: string[];
+  equipped: Partial<Record<GearSlot, string>>;
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -71,6 +82,11 @@ export interface Profile {
   run: Run | null;
   best: Best | null;
   badges: BadgeId[];
+  /** coins: flat rewards, spent in the gear shop; persist across runs */
+  coins: number;
+  gear: Gear;
+  /** found golden spike ids (src/data/spikes.ts) */
+  spikes: string[];
   createdAt: number;
 }
 

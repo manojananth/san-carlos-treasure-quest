@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BASE_SECONDS, COURSE, JUMP_V, GRAVITY, STAR_SCORE, createSim, pressJump, remainingSeconds, scoreOf, stepSim,
+  BASE_SECONDS, BASE_SECONDS_BY, COURSE, HUNTER_COURSE, JUMP_V, GRAVITY, STAR_SCORE, createSim, pressJump, remainingSeconds, scoreOf, stepSim,
 } from './canyonSim';
-import type { SimState } from './canyonSim';
+import type { Course, SimState } from './canyonSim';
 
 const DT = 1 / 60;
 
@@ -65,5 +65,56 @@ describe('canyon pacing', () => {
     const oops = run({ jump: true });
     oops.stumbles = 1;
     expect(scoreOf(oops, BASE_SECONDS)).toBeLessThan(scoreOf(clean, BASE_SECONDS));
+  });
+});
+
+/** a bot that jumps the Treasure Hunter course: `dbl` = takeoff lead before the first of a double, `lead` for everything else */
+function runHunter(opts: { lead?: number; dbl?: number; second?: number; held?: boolean; jump?: boolean }): { s: SimState; course: Course } {
+  const course = HUNTER_COURSE;
+  const s = createSim(course);
+  let next = 0;
+  for (let i = 0; i < 60 * 80 && !s.won; i++) {
+    const o = course.obstacles[next];
+    if (o && opts.jump !== false) {
+      const prev = course.obstacles[next - 1];
+      const next2 = course.obstacles[next + 1];
+      const isSecond = !!prev && o.x - prev.x < 70;
+      const isFirstOfPair = !!next2 && next2.x - o.x < 70;
+      const lead = isSecond ? opts.second ?? 40 : isFirstOfPair ? opts.dbl ?? 45 : opts.lead ?? 34;
+      if (o.x - s.x <= lead) { pressJump(s); next++; }
+    }
+    stepSim(s, DT, !!opts.held, course);
+  }
+  return { s, course };
+}
+
+describe('Treasure Hunter canyon', () => {
+  it('has 17 obstacles including four doubles that one jump cannot clear', () => {
+    expect(HUNTER_COURSE.obstacles).toHaveLength(17);
+    const gaps = HUNTER_COURSE.obstacles.slice(1).map((o, i) => o.x - HUNTER_COURSE.obstacles[i].x).filter((d) => d < 70);
+    expect(gaps).toHaveLength(4);
+    // a single jump on the first of a pair still stumbles on the second
+    const { s } = runHunter({ dbl: 52, second: 0 });
+    expect(s.stumbles).toBeGreaterThan(0);
+  });
+  it('a well-timed run clears every obstacle, and the window is not absurdly small', () => {
+    for (const held of [false, true]) {
+      for (const dbl of [46, 50, 54]) expect(runHunter({ dbl, second: 34, held }).s.stumbles, `dbl ${dbl} held ${held}`).toBe(0);
+    }
+    expect(runHunter({ dbl: 20, second: 34 }).s.stumbles).toBeGreaterThan(0);
+  });
+  it('a clean run earns 3 stars; a sloppy one still finishes', () => {
+    const limit = BASE_SECONDS_BY.hunter * 0.6;
+    const { s } = runHunter({ held: true, dbl: 52, second: 34 });
+    expect(s.won).toBe(true);
+    expect(s.gems).toBeGreaterThan(25);
+    expect(scoreOf(s, limit)).toBeGreaterThanOrEqual(STAR_SCORE[1]);
+    const sloppy = runHunter({ jump: false }).s;
+    expect(sloppy.stumbles).toBe(HUNTER_COURSE.obstacles.length);
+    expect(remainingSeconds(sloppy, limit)).toBeLessThan(0);
+  });
+  it('the Pro and Legend courses are unchanged', () => {
+    expect(COURSE.obstacles).toHaveLength(11);
+    expect(BASE_SECONDS_BY.pro).toBe(BASE_SECONDS);
   });
 });

@@ -1,9 +1,12 @@
 import { STOPS } from '../data/stops';
 import type { StopId } from '../data/stops';
-import { getRiddle } from '../data/riddles';
+import { gearItem } from '../data/gear';
+import type { GearSlot } from '../data/gear';
+import { SPIKES, isSpikeId, spikeDef } from '../data/spikes';
 import { isHatId } from '../data/hats';
 import type { HatId } from '../data/hats';
 import {
+  COIN_CHEST, COIN_FIRST_TRY_RIDDLE, COIN_PER_STAR, COIN_SPIKE,
   DIFFICULTY, MAIN_STOPS, MAX_NAME, MAX_PROFILES, SHARP_MIND_COUNT, STAR_COLLECTOR_COUNT,
   bonusXp, challengeXp, riddleXp, treasureXp,
 } from './rules';
@@ -18,7 +21,8 @@ export type Action =
   | { type: 'resetRun'; now: number }
   | { type: 'continueIntro' }
   | { type: 'finishChallenge'; stars: Stars; now: number }
-  | { type: 'answerRiddle'; choice: number }
+  /** The UI decides correctness (riddle kinds differ); `mark` identifies a wrong answer so it is not counted twice. */
+  | { type: 'answerRiddle'; correct: boolean; mark?: string }
   | { type: 'riddleTimeout' }
   | { type: 'useHint' }
   | { type: 'startWalk' }
@@ -32,14 +36,27 @@ export type Action =
   | { type: 'puzzleSolved' }
   | { type: 'openChest'; now: number }
   | { type: 'showSummary' }
+  | { type: 'buyItem'; id: string }
+  | { type: 'equip'; slot: GearSlot; id: string | null }
+  | { type: 'findSpike'; id: string }
   | { type: 'setMuted'; muted: boolean }
   | { type: 'setHaptics'; haptics: boolean };
 
 export const initialState = (): GameState => ({ profiles: [], activeId: null, settings: { muted: false, haptics: true } });
 
+/** Riddle seed from the start time: a stable 31-bit integer. */
+export const seedFrom = (now: number): number => {
+  let h = (Math.floor(now) ^ 0x9e3779b9) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  return (h ^ (h >>> 16)) & 0x7fffffff;
+};
+
 export const newRun = (now: number): Run => ({
-  phase: 'intro', at: 'depot', unlocked: ['depot'], riddles: {}, stars: {}, fragments: [], xp: 0, earned: [], startedAt: now,
+  phase: 'intro', at: 'depot', unlocked: ['depot'], riddles: {}, stars: {}, fragments: [], xp: 0, earned: [], startedAt: now, seed: seedFrom(now),
 });
+
+export const newGear = (): Profile['gear'] => ({ owned: [], equipped: {} });
 
 export const stopIndex = (id: StopId) => STOPS.findIndex((s) => s.id === id);
 /** The stop the player is trying to reach next (null at the very end). */
@@ -71,8 +88,8 @@ export const finaleOrigin = (run: Run): StopId => (run.unlocked.includes('hiller
 export const returnLegKey = (run: Run): string | null =>
   run.phase === 'finale' || (run.phase === 'summary' && run.treasure) ? `${finaleOrigin(run)}>depot` : null;
 
-function startFinale(state: GameState, run: Run, p: Profile): GameState {
-  return withRunState(state, p, { ...run, phase: 'finale', finaleStep: 'return' });
+function startFinale(state: GameState, run: Run, p: Profile, coins = 0): GameState {
+  return withRunState(state, p, { ...run, phase: 'finale', finaleStep: 'return' }, coins);
 }
 
 /** The chest is open: treasure XP, run-end badges, personal best. Phase stays `finale` (step `done`) until the summary is shown. */
@@ -80,14 +97,14 @@ function finishRun(state: GameState, run: Run, p: Profile, now: number): GameSta
   const bonus = treasureXp(DIFFICULTY[p.difficulty].xpMult);
   let r: Run = { ...run, finaleStep: 'done', finishedAt: now, treasure: true, treasureXp: bonus, xp: run.xp + bonus };
   const noHints = MAIN_STOPS.filter((id) => id !== 'depot').every((id) => !r.riddles[id]?.hinted);
-  r = award(r, 'treasure-finder', 'trailblazer', ...(noHints ? (['no-peeking'] as BadgeId[]) : []), ...(p.difficulty === 'legend' && !r.mixed ? (['legend'] as BadgeId[]) : []));
+  r = award(r, 'treasure-finder', 'trailblazer', ...(noHints ? (['no-peeking'] as BadgeId[]) : []), ...(p.difficulty === 'legend' && !r.mixed ? (['legend'] as BadgeId[]) : []), ...(p.difficulty === 'hunter' && !r.mixed ? (['master-hunter'] as BadgeId[]) : []));
   const stars = totalStars(r);
   const isBest = !p.best || r.xp > p.best.xp;
   const best = isBest ? { xp: r.xp, stars, difficulty: p.difficulty, finishedAt: now } : p.best;
   if (isBest) r = { ...r, newBest: true };
   return {
     ...state,
-    profiles: state.profiles.map((q) => (q.id === p.id ? { ...p, run: r, best, badges: addUnique(p.badges, r.earned) } : q)),
+    profiles: state.profiles.map((q) => (q.id === p.id ? { ...p, run: r, best, coins: p.coins + COIN_CHEST, badges: addUnique(p.badges, r.earned) } : q)),
   };
 }
 
@@ -108,13 +125,45 @@ export function reducer(state: GameState, a: Action): GameState {
       if (!name || state.profiles.length >= MAX_PROFILES || state.profiles.some((p) => p.id === a.id)) return state;
       const p: Profile = {
         id: a.id, name, avatar: isHatId(a.avatar) ? a.avatar : 'red', difficulty: a.difficulty,
-        run: newRun(a.now), best: null, badges: [], createdAt: a.now,
+        run: newRun(a.now), best: null, badges: [], coins: 0, gear: newGear(), spikes: [], createdAt: a.now,
       };
       return { ...state, profiles: [...state.profiles, p], activeId: p.id };
     }
     case 'deleteProfile': {
       const profiles = state.profiles.filter((p) => p.id !== a.id);
       return { ...state, profiles, activeId: state.activeId === a.id ? null : state.activeId };
+    }
+    case 'buyItem': {
+      const p = activeProfile(state);
+      const item = gearItem(a.id);
+      if (!p || !item || p.gear.owned.includes(item.id) || p.coins < item.price) return state;
+      return setProfile(state, { ...p, coins: p.coins - item.price, gear: { ...p.gear, owned: [...p.gear.owned, item.id] } });
+    }
+    case 'equip': {
+      const p = activeProfile(state);
+      if (!p) return state;
+      const equipped = { ...p.gear.equipped };
+      if (a.id === null) {
+        if (equipped[a.slot] === undefined) return state;
+        delete equipped[a.slot];
+      } else {
+        const item = gearItem(a.id);
+        if (!item || item.slot !== a.slot || !p.gear.owned.includes(item.id) || equipped[a.slot] === item.id) return state;
+        equipped[a.slot] = item.id;
+      }
+      return setProfile(state, { ...p, gear: { ...p.gear, equipped } });
+    }
+    case 'findSpike': {
+      const p = activeProfile(state);
+      if (!p || !isSpikeId(a.id) || p.spikes.includes(a.id)) return state;
+      const spikes = [...p.spikes, a.id];
+      let run = p.run;
+      let badges = p.badges;
+      if (spikes.length >= SPIKES.length) {
+        if (run) run = award(run, 'spike-collector');
+        badges = addUnique(badges, ['spike-collector']);
+      }
+      return setProfile(state, { ...p, run, spikes, coins: p.coins + COIN_SPIKE, badges });
     }
     case 'setMuted':
       return state.settings.muted === a.muted ? state : { ...state, settings: { ...state.settings, muted: a.muted } };
@@ -153,21 +202,21 @@ export function reducer(state: GameState, a: Action): GameState {
       if (totalStars(run) >= STAR_COLLECTOR_COUNT) run = award(run, 'star-collector');
       if (at === 'hiller') {
         run = award({ ...run, xp: run.xp + bonusXp(mult) }, 'sky-high');
-        return startFinale(state, run, p);
+        return startFinale(state, run, p, a.stars * COIN_PER_STAR);
       }
-      return withRunState(state, p, { ...run, phase: 'riddle' });
+      return withRunState(state, p, { ...run, phase: 'riddle' }, a.stars * COIN_PER_STAR);
     }
 
     case 'answerRiddle': {
       const p = activeProfile(state);
       if (!p?.run || p.run.phase !== 'riddle') return state;
       const target = nextStopId(p.run);
-      const riddle = target && getRiddle(target, DIFFICULTY[p.difficulty].tier);
-      if (!target || !riddle) return state;
+      if (!target) return state;
       const rs = p.run.riddles[target] ?? { tries: 0, hinted: false, firstTry: true, wrong: [] };
-      if (rs.wrong.includes(a.choice) || a.choice < 0 || a.choice > 2) return state;
-      if (a.choice !== riddle.answer) {
-        const riddles = { ...p.run.riddles, [target]: { ...fresh(rs), tries: rs.tries + 1, firstTry: false, wrong: [...rs.wrong, a.choice] } };
+      if (a.mark !== undefined && rs.wrong.includes(a.mark)) return state;
+      if (!a.correct) {
+        const wrong = a.mark !== undefined ? [...rs.wrong, a.mark] : rs.wrong;
+        const riddles = { ...p.run.riddles, [target]: { ...fresh(rs), tries: rs.tries + 1, firstTry: false, wrong } };
         return withRunState(state, p, { ...p.run, riddles });
       }
       let run: Run = {
@@ -180,7 +229,7 @@ export function reducer(state: GameState, a: Action): GameState {
       run = award(run, 'first-clue');
       const firstTries = Object.entries(run.riddles).filter(([id, r]) => r?.firstTry && run.unlocked.includes(id as StopId)).length;
       if (firstTries >= SHARP_MIND_COUNT) run = award(run, 'sharp-mind');
-      return withRunState(state, p, run);
+      return withRunState(state, p, run, rs.tries === 0 ? COIN_FIRST_TRY_RIDDLE : 0);
     }
     case 'riddleTimeout': {
       const p = activeProfile(state);
@@ -255,9 +304,11 @@ const fresh = (rs: RiddleState): RiddleState => {
   return rest;
 };
 
-function withRunState(state: GameState, p: Profile, run: Run): GameState {
-  return {
-    ...state,
-    profiles: state.profiles.map((q) => (q.id === p.id ? { ...p, run, badges: addUnique(p.badges, run.earned) } : q)),
-  };
+function withRunState(state: GameState, p: Profile, run: Run, coins = 0): GameState {
+  return setProfile(state, { ...p, run, coins: p.coins + coins, badges: addUnique(p.badges, run.earned) });
 }
+
+const setProfile = (state: GameState, p: Profile): GameState => ({ ...state, profiles: state.profiles.map((q) => (q.id === p.id ? p : q)) });
+
+/** Display name of a spike id (for toasts). */
+export const spikeName = (id: string) => spikeDef(id)?.name ?? 'Golden Spike';

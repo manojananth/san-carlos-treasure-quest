@@ -51,6 +51,14 @@ function XpCounter({ xp }: { xp: number }) {
   );
 }
 
+const CoinIcon = () => (
+  <svg className="coin-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" fill="#f2b632" stroke="#1B2430" strokeWidth="2" />
+    <circle cx="12" cy="12" r="5.2" fill="none" stroke="#1B2430" strokeWidth="1.6" opacity=".55" />
+    <path d="M9.6 9.2v5.6" stroke="#1B2430" strokeWidth="2" strokeLinecap="round" opacity=".7" />
+  </svg>
+);
+
 const FragIcon = () => (
   <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
     <path d="M3 5 L9 3 L15 5 L21 3 V19 L15 21 L9 19 L3 21 Z" fill="#fff7e3" stroke="#1B2430" strokeWidth="2" strokeLinejoin="round" />
@@ -70,6 +78,7 @@ export function HUD({ profile, run, onMenu }: { profile: Profile; run: Run; onMe
       <div className="hud-stats">
         <div className="pill" role="group" aria-label="Experience points"><span className="pill-ico xp-ico">XP</span><XpCounter xp={run.xp} /></div>
         <div className="pill" role="group" aria-label="Stars"><span className="pill-ico star-ico" aria-hidden="true">★</span><b data-testid="stars">{totalStars(run)}</b></div>
+        <div className="pill" role="group" aria-label="Coins"><CoinIcon /><b data-testid="coins">{profile.coins}</b></div>
         <div className="pill" role="group" aria-label="Map fragments"><FragIcon /><b data-testid="fragments">{run.fragments.length}/{MAIN_STOPS.length}</b></div>
       </div>
       <button type="button" className="icon-btn sound-btn" aria-pressed={!muted} aria-label="Sound" title={muted ? 'Sound off' : 'Sound on'} data-testid="sound-toggle" onClick={() => dispatch({ type: 'setMuted', muted: !muted })}>

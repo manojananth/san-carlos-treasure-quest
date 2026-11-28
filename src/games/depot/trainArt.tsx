@@ -4,7 +4,7 @@
  * Cars live in a 60 x 46 box, the locomotive in an 80 x 46 box; wheels end at y = 19 (the rail).
  * `ghost` draws the same shape as a flat ink silhouette (used for the Rookie slot hints).
  */
-export type CarKind = 'tender' | 'mail' | 'passenger' | 'coach' | 'freight' | 'caboose';
+export type CarKind = 'tender' | 'mail' | 'passenger' | 'coach' | 'freight' | 'caboose' | 'tanker';
 
 export const INK = '#1b2430';
 export const RED = '#c8372d';
@@ -27,6 +27,7 @@ export const CAR_NAMES: Record<CarKind, string> = {
   coach: 'cream coach',
   freight: 'brown freight car',
   caboose: 'red caboose',
+  tanker: 'silver tank car',
 };
 
 const sw = { stroke: INK, strokeWidth: 2, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
@@ -107,6 +108,21 @@ function Body({ ghost, kind }: { ghost: boolean; kind: CarKind }) {
               {[-22, -16, 16, 22].map((x) => <line key={x} x1={x} y1={-14} x2={x} y2={8} stroke="#6b4526" strokeWidth={1.4} />)}
               <rect x={-10} y={-12} width={20} height={20} rx={1.5} fill="#a06b3d" {...sw} strokeWidth={1.5} />
               <path d="M-10 -12 L10 8 M10 -12 L-10 8" stroke={GOLD} strokeWidth={2} />
+            </>
+          )}
+        </g>
+      );
+    case 'tanker':
+      return (
+        <g>
+          <rect x={-28} y={0} width={56} height={9} rx={2} fill={f('#46505f')} {...sw} />
+          <rect x={-25} y={-17} width={50} height={19} rx={9.5} fill={f('#c9d3dc')} {...sw} />
+          {!ghost && (
+            <>
+              <path d="M-19 -12 Q0 -16 19 -12" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" />
+              <rect x={-4} y={-22} width={8} height={6} rx={2} fill={GOLD} {...sw} strokeWidth={1.5} />
+              <line x1={-9} y1={-17} x2={-9} y2={2} stroke={INK} strokeWidth={1.4} />
+              <line x1={9} y1={-17} x2={9} y2={2} stroke={INK} strokeWidth={1.4} />
             </>
           )}
         </g>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CELL, PIECES, SNAP_TOLERANCE, judgeDrop, moveSlot, nearestSlot, slotCenter, slotName, trayOrder } from './puzzle';
+import { CELL, PIECES, SNAP_TOLERANCE, isSolved, judgeDrop, moveSlot, nearestSlot, quarterOf, slotCenter, slotName, startTurns, trayOrder } from './puzzle';
 
 describe('fragment puzzle logic', () => {
   it('slot centres sit on a 3x2 grid', () => {
@@ -45,5 +45,19 @@ describe('fragment puzzle logic', () => {
       expect(o.every((p, i) => p === i)).toBe(false);
     }
     expect(trayOrder(() => 0.999).every((p, i) => p === i)).toBe(false);
+  });
+  it('Treasure Hunter pieces all start turned and are solved only when in place AND upright', () => {
+    for (let k = 0; k < 50; k++) {
+      const t = startTurns();
+      expect(t).toHaveLength(PIECES);
+      expect(t.every((n) => n >= 1 && n <= 3)).toBe(true);
+    }
+    const all = Array(PIECES).fill(true) as boolean[];
+    expect(isSolved(all, Array(PIECES).fill(0))).toBe(true);
+    expect(isSolved(all, [0, 0, 0, 0, 0, 1])).toBe(false);
+    expect(isSolved(all, [4, 8, 0, 0, 0, 0])).toBe(true); // four taps = a full turn
+    expect(isSolved([...all.slice(1), false], Array(PIECES).fill(0))).toBe(false);
+    expect(quarterOf(5)).toBe(1);
+    expect(quarterOf(-1)).toBe(3);
   });
 });

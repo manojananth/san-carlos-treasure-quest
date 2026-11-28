@@ -5,7 +5,8 @@ import { Stage, clientToStage, usePausableTimeline, usePointerDrag, useReducedMo
 import { sfx } from '../audio/sfx';
 import { buzzTap, buzzWrong, buzz } from '../audio/haptics';
 import { STOPS } from '../data/stops';
-import { CELL, MAP_H, MAP_W, PIECES, PIECE_STOPS, judgeDrop, moveSlot, nearestSlot, slotCenter, slotName, trayOrder } from './puzzle';
+import { CELL, MAP_H, MAP_W, PIECES, PIECE_STOPS, isSolved, judgeDrop, moveSlot, nearestSlot, quarterOf, slotCenter, slotName, startTurns, trayOrder } from './puzzle';
+import type { Difficulty } from '../state/types';
 import { INK, PAPER, GOLD, RED, StopIcon, TreasureMapArt } from './mapArt';
 import { useWideLayout } from './useWideLayout';
 import './finale.css';
@@ -18,12 +19,15 @@ const TILT = [-4, 3, -2, 3, -3, 2];
 const stopOf = (p: number) => STOPS.find((s) => s.id === PIECE_STOPS[p])!;
 
 interface Props {
+  /** Treasure Hunter: pieces start turned (tap the rotate badge or press R) and carry no labels. Read once at mount. */
+  difficulty?: Difficulty;
   paused: boolean;
   /** the player pressed "Follow the X" after the map was complete */
   onSolved: () => void;
 }
 
-export function FragmentPuzzle({ paused, onSolved }: Props) {
+export function FragmentPuzzle({ difficulty = 'pro', paused, onSolved }: Props) {
+  const [hunter] = useState(difficulty === 'hunter');
   const wide = useWideLayout();
   const geo = wide ? WIDE : PORTRAIT;
   const reduced = useReducedMotion();
@@ -31,6 +35,9 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const els = useRef<(SVGGElement | null)[]>([]);
   const [order] = useState(() => trayOrder());
+  // Treasure Hunter: clockwise quarter turns still owed per piece (cumulative taps; upright when a multiple of 4)
+  const turns = useRef<number[]>(hunter ? startTurns() : Array(PIECES).fill(0));
+  const [quarters, setQuarters] = useState<number[]>(() => turns.current.map(quarterOf));
   const [placed, setPlaced] = useState<boolean[]>(() => Array(PIECES).fill(false));
   const placedRef = useRef(placed);
   const [held, setHeld] = useState<number | null>(null);
@@ -50,8 +57,8 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
 
   const home = useCallback((p: number) => {
     const t = order.indexOf(p);
-    return { x: geo.cx[t % 3], y: geo.cy[Math.floor(t / 3)], rot: reduced ? 0 : TILT[t] };
-  }, [geo, order, reduced]);
+    return { x: geo.cx[t % 3], y: geo.cy[Math.floor(t / 3)], rot: hunter ? turns.current[p] * 90 : reduced ? 0 : TILT[t] };
+  }, [geo, order, reduced, hunter]);
   const slotPos = useCallback((i: number) => slotCenter(i, geo.fx, geo.fy), [geo]);
 
   // park every piece (before paint, and again when the layout flips between portrait and wide)
@@ -61,7 +68,7 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
       if (!el) continue;
       killTweensOf(el);
       gsap.set(el, { svgOrigin: '0 0' }); // scale and spin about the piece centre (its bbox includes the unclipped map)
-      if (placedRef.current[p]) gsap.set(el, { x: slotPos(p).x, y: slotPos(p).y, rotation: 0, scale: 1 });
+      if (placedRef.current[p]) gsap.set(el, { x: slotPos(p).x, y: slotPos(p).y, rotation: turns.current[p] * 90, scale: 1 });
       else { const h = home(p); gsap.set(el, { x: h.x, y: h.y, rotation: h.rot, scale: geo.scale }); }
     }
   }, [geo, home, slotPos, killTweensOf]);
@@ -83,20 +90,23 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
     placedRef.current = next;
     setPlaced(next);
     setBadSlot(null);
-    const n = next.filter(Boolean).length;
+    const rot = turns.current[p] * 90;
+    const n = next.filter((v, i) => v && quarterOf(turns.current[i]) === 0).length;
     const c = slotPos(p);
     if (el) {
       killTweensOf(el);
-      if (reduced) gsap.set(el, { x: c.x, y: c.y, rotation: 0, scale: 1 });
+      if (reduced) gsap.set(el, { x: c.x, y: c.y, rotation: rot, scale: 1 });
       else {
-        tween(el, { x: c.x, y: c.y, rotation: 0, scale: 1.06, duration: 0.2, ease: 'back.out(2)' });
+        tween(el, { x: c.x, y: c.y, rotation: rot, scale: 1.06, duration: 0.2, ease: 'back.out(2)' });
         tween(el, { scale: 1, duration: 0.2, delay: 0.2, ease: 'power2.out' });
       }
     }
     sfx('clank');
     buzzTap();
     const name = stopOf(p).theme;
-    if (n === PIECES) {
+    if (hunter && quarterOf(turns.current[p]) !== 0) {
+      setStatus(`The ${name} piece fits this slot, but it is turned. Tap its rotate badge or press R to turn it upright. ${n} of ${PIECES} pieces done.`);
+    } else if (isSolved(next, turns.current)) {
       setSolved(true);
       setStatus(`${name} piece placed. The map is complete! The red X marks the treasure by the depot. Press Follow the X to go on.`);
       sfx('cheer');
@@ -107,7 +117,37 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
     } else {
       setStatus(`${name} piece placed in the ${slotName(p)} slot. ${n} of ${PIECES} pieces placed.`);
     }
-  }, [killTweensOf, reduced, slotPos, tween]);
+  }, [hunter, killTweensOf, reduced, slotPos, tween]);
+
+  /** Treasure Hunter: turn a piece (tray or already in its slot) a quarter turn clockwise */
+  const rotate = useCallback((p: number) => {
+    if (!hunter || !activeRef.current) return;
+    const el = els.current[p];
+    if (!el) return;
+    turns.current[p] += 1;
+    const q = turns.current.map(quarterOf);
+    setQuarters(q);
+    sfx('tap');
+    buzzTap();
+    killTweensOf(el);
+    const to = { rotation: turns.current[p] * 90 };
+    if (reduced) gsap.set(el, to);
+    else tween(el, { ...to, duration: 0.18, ease: 'power2.out' });
+    const name = stopOf(p).theme;
+    if (placedRef.current[p] && q[p] === 0) {
+      sfx('clank');
+      const n = placedRef.current.filter((v, i) => v && q[i] === 0).length;
+      if (isSolved(placedRef.current, turns.current)) {
+        setSolved(true);
+        setStatus(`${name} piece upright. The map is complete! The red X marks the treasure by the depot. Press Follow the X to go on.`);
+        sfx('cheer');
+        buzz([30, 40, 30, 40, 60]);
+        const g = glowRef.current;
+        if (g && !reduced) tween(g, { opacity: 1, duration: 0.5, yoyo: true, repeat: 3, ease: 'sine.inOut' });
+        else if (g) gsap.set(g, { opacity: 1 });
+      } else setStatus(`${name} piece upright and locked in. ${n} of ${PIECES} pieces done.`);
+    } else setStatus(`${name} piece turned ${q[p] === 0 ? 'upright' : `${q[p] * 90} degrees clockwise`}.`);
+  }, [hunter, killTweensOf, reduced, tween]);
 
   /** the one place a piece is offered to a slot: pointer drops and keyboard Enter both land here */
   const attempt = useCallback((p: number, slot: number | null) => {
@@ -131,6 +171,8 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
   usePointerDrag(svgRef, {
     onStart: (i) => {
       if (!activeRef.current || !svgRef.current) return false;
+      const rot = (i.target as Element | null)?.closest?.('[data-rotate]');
+      if (rot) { rotate(Number(rot.getAttribute('data-rotate'))); return false; }
       const el = (i.target as Element | null)?.closest?.('[data-piece]');
       const p = el ? Number(el.getAttribute('data-piece')) : NaN;
       if (Number.isNaN(p) || placedRef.current[p]) return false;
@@ -140,8 +182,9 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
       drag.current = { piece: p, ox: Number(gsap.getProperty(g, 'x')) - pt.x, oy: Number(gsap.getProperty(g, 'y')) - pt.y };
       setKb(null);
       setHeld(p);
-      if (reduced) gsap.set(g, { scale: 1, rotation: 0 });
-      else tween(g, { scale: 1.04, rotation: 0, duration: 0.12 });
+      const keepRot = hunter ? turns.current[p] * 90 : 0;
+      if (reduced) gsap.set(g, { scale: 1, rotation: keepRot });
+      else tween(g, { scale: 1.04, rotation: keepRot, duration: 0.12 });
       return true;
     },
     onMove: (i) => {
@@ -181,8 +224,9 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
     const el = els.current[p]!;
     const c = slotPos(slot);
     killTweensOf(el);
-    if (reduced) gsap.set(el, { x: c.x, y: c.y - 6, rotation: 0, scale: 1 });
-    else tween(el, { x: c.x, y: c.y - 6, rotation: 0, scale: 1, duration: 0.2, ease: 'power2.out' });
+    const rot = turns.current[p] * 90;
+    if (reduced) gsap.set(el, { x: c.x, y: c.y - 6, rotation: rot, scale: 1 });
+    else tween(el, { x: c.x, y: c.y - 6, rotation: rot, scale: 1, duration: 0.2, ease: 'power2.out' });
     setHoverSlot(slot);
   };
   const onKeyDown = (e: React.KeyboardEvent<SVGSVGElement>) => {
@@ -190,6 +234,7 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
     const el = (e.target as Element).closest?.('[data-piece]');
     if (!el) return;
     const p = Number(el.getAttribute('data-piece'));
+    if (hunter && (e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); rotate(p); return; }
     if (placedRef.current[p]) return;
     const press = e.key === 'Enter' || e.key === ' ';
     if (press) e.preventDefault();
@@ -235,7 +280,7 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
 
   const rank = (p: number) => (p === held || p === kb?.piece ? 2 : placed[p] ? 0 : 1);
   const paintOrder = useMemo(() => [...Array(PIECES).keys()].sort((a, b) => rank(a) - rank(b)), [held, kb, placed]); // eslint-disable-line react-hooks/exhaustive-deps
-  const count = placed.filter(Boolean).length;
+  const count = placed.filter((v, i) => v && quarters[i] === 0).length;
   const firstTray = order.find((p) => !placed[p]);
 
   return (
@@ -256,7 +301,7 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
                   className={`fp-slot${hoverSlot === i ? ' hover' : ''}${badSlot === i ? ' bad' : ''}${taken ? ' done' : ''}`}
                   x={-CELL / 2 + 3} y={-CELL / 2 + 3} width={CELL - 6} height={CELL - 6} rx={6}
                 />
-                {!taken && <g className="fp-ghost" transform="scale(1.1)"><StopIcon id={PIECE_STOPS[i]} /></g>}
+                {!taken && !hunter && <g className="fp-ghost" transform="scale(1.1)"><StopIcon id={PIECE_STOPS[i]} /></g>}
               </g>
             );
           })}
@@ -265,24 +310,27 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
           {paintOrder.map((p) => {
             const stop = stopOf(p);
             const isPlaced = placed[p];
+            const locked = isPlaced && quarters[p] === 0;
             const picked = kb?.piece === p;
             return (
               <g
                 key={p}
                 ref={(el) => { els.current[p] = el; }}
-                className={`fp-piece${picked ? ' picked' : ''}${held === p ? ' held' : ''}${isPlaced ? ' placed' : ''}`}
+                className={`fp-piece${picked ? ' picked' : ''}${held === p ? ' held' : ''}${locked ? ' placed' : ''}${isPlaced && !locked ? ' turned' : ''}`}
                 data-piece={p}
                 data-game-focus={p === firstTray ? '' : undefined}
-                role={isPlaced ? 'img' : 'button'}
-                aria-label={isPlaced ? `${stop.theme} piece, placed in the ${slotName(p)} slot` : `${stop.theme} piece, from stop ${stop.order}. Press Enter to pick it up.`}
+                role={locked ? 'img' : 'button'}
+                aria-label={hunter
+                  ? (isPlaced ? `${stop.theme} piece in its slot, turned ${quarters[p] * 90} degrees. Press R to rotate it.` : `${stop.theme} piece, turned ${quarters[p] * 90} degrees. Press R to rotate, Enter to pick it up.`)
+                  : isPlaced ? `${stop.theme} piece, placed in the ${slotName(p)} slot` : `${stop.theme} piece, from stop ${stop.order}. Press Enter to pick it up.`}
                 aria-pressed={isPlaced ? undefined : picked}
-                tabIndex={isPlaced ? -1 : 0}
+                tabIndex={locked ? -1 : 0}
               >
                 <svg x={-CELL / 2} y={-CELL / 2} width={CELL} height={CELL} viewBox={`${(p % 3) * CELL} ${Math.floor(p / 3) * CELL} ${CELL} ${CELL}`} pointerEvents="none">
                   <use href={`#${mapId}`} />
                 </svg>
                 <rect className="fp-edge" x={-CELL / 2} y={-CELL / 2} width={CELL} height={CELL} rx={3} fill="none" stroke={INK} strokeWidth={3} pointerEvents="none" />
-                {!isPlaced && (<>
+                {!isPlaced && !hunter && (<>
                 <g transform="translate(0 37)" pointerEvents="none">
                   <rect x={-44} y={-9} width={88} height={18} rx={9} fill={PAPER} stroke={INK} strokeWidth={1.6} />
                   <text y={4} textAnchor="middle" fontFamily="'Lilita One', system-ui, sans-serif" fontSize={10} fill={INK}>{stop.theme}</text>
@@ -294,6 +342,13 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
                 </>)}
                 <rect className="fp-ring" x={-CELL / 2 - 4} y={-CELL / 2 - 4} width={CELL + 8} height={CELL + 8} rx={7} pointerEvents="none" />
                 <rect x={-CELL / 2} y={-CELL / 2} width={CELL} height={CELL} fill="transparent" />
+                {hunter && !locked && (
+                  <g className="fp-rot" data-rotate={p} transform={`translate(${CELL / 2 - 12} ${-CELL / 2 + 12})`} role="presentation">
+                    <circle r={22} fill="transparent" />
+                    <circle r={13} fill={GOLD} stroke={INK} strokeWidth={2.2} />
+                    <path d="M-5.5 1.5 A6 6 0 1 1 -1 6 M-5.5 1.5 L-8.5 -1.5 M-5.5 1.5 L-2 -0.5" transform="rotate(30)" fill="none" stroke={INK} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                  </g>
+                )}
               </g>
             );
           })}
@@ -314,9 +369,11 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
             </>
           ) : (
             <>
-              <p className="fp-msg">Each piece comes from a stop on your quest. Drag it into the frame, matching the trail, hills and Bay.</p>
+              <p className="fp-msg">{hunter
+                ? 'The pieces are spun every which way and have no labels! Tap the gold turn badge (or press R) to set a piece upright, then drag it into the frame. Match the trail, hills and Bay.'
+                : 'Each piece comes from a stop on your quest. Drag it into the frame, matching the trail, hills and Bay.'}</p>
               <p className="fp-count" aria-hidden="true">{count} of {PIECES} pieces</p>
-              <p className="fp-keys">Keyboard: Enter picks a piece up, arrow keys choose a slot, Enter drops it.</p>
+              <p className="fp-keys">Keyboard: Enter picks a piece up, arrow keys choose a slot, Enter drops it{hunter ? ', R turns a piece' : ''}.</p>
             </>
           )}
         </div>

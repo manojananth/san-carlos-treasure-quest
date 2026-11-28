@@ -13,6 +13,8 @@ export const COURSE_LEN = 2700;
 export const RUNNER_HW = 4;
 export const GEM_BONUS = 0.3; // s of extra time per echo-gem
 export const BASE_SECONDS = 35;
+/** time limit before the timeScale; Treasure Hunter's longer course gets 45 s (x 0.6 = 27 s) */
+export const BASE_SECONDS_BY: Record<string, number> = { rookie: 35, pro: 35, legend: 35, hunter: 45 };
 export const WIN_COAST = 0.7; // s the explorer coasts to the cairn before the result appears
 /** score = % of the time limit left - 5 per stumble */
 export const STUMBLE_COST = 5;
@@ -46,6 +48,30 @@ function buildCourse(): Course {
   return { length: COURSE_LEN, obstacles, gems };
 }
 export const COURSE: Course = buildCourse();
+
+/**
+ * Treasure Hunter course: 17 obstacles, four of them DOUBLES (two roots or rocks 58-62 units apart). One jump cannot clear
+ * both, so the player must land in the 34-38 unit gap and jump again right away (takeoff window about 0.27 s).
+ */
+const HUNTER_OBSTACLES: [number, ObstacleKind][] = [
+  [380, 'root'], [530, 'rock'], [680, 'root'], [840, 'root'], [898, 'root'], [1050, 'rock'], [1190, 'root'],
+  [1300, 'rock'], [1362, 'rock'], [1740, 'root'], [1880, 'rock'], [2020, 'root'], [2078, 'root'], [2200, 'rock'],
+  [2330, 'root'], [2450, 'root'], [2508, 'root'],
+];
+function buildHunterCourse(): Course {
+  const obstacles: Obstacle[] = HUNTER_OBSTACLES.map(([x, kind]) => ({ x, kind, h: kind === 'root' ? 8 : 14, hw: 8 }));
+  const gems: Gem[] = [];
+  // arcs of 3 over six single obstacles
+  for (const x of [380, 680, 1050, 1740, 2200, 2330]) for (const [dx, h] of [[-16, 24], [0, 32], [16, 24]]) gems.push({ x: x + dx, h });
+  // a pair in the landing gap of every double: the reward for a well-timed double jump
+  for (const x of [869, 1331, 2049, 2479]) for (const dx of [-5, 5]) gems.push({ x: x + dx, h: 12 });
+  // two lines of 3 on the ground in quiet stretches (the first one is on the bridge)
+  for (const cx of [1580, 1960]) for (const dx of [-18, 0, 18]) gems.push({ x: cx + dx, h: 6 });
+  gems.sort((a, b) => a.x - b.x);
+  return { length: COURSE_LEN, obstacles, gems };
+}
+export const HUNTER_COURSE: Course = buildHunterCourse();
+export const courseFor = (difficulty: string): Course => (difficulty === 'hunter' ? HUNTER_COURSE : COURSE);
 
 export type SimEvent = 'gem' | 'stumble' | 'jump' | 'land' | 'win';
 

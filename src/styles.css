@@ -185,6 +185,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--teal); outl
 .pill b { font-weight: 400; min-width: 1ch; }
 .pill-ico { font-size: 12px; background: var(--teal); color: #fff; border: 2px solid var(--ink); border-radius: 8px; padding: 2px 5px; }
 .star-ico { font-size: 22px; background: none; color: var(--gold); border: 0; padding: 0; -webkit-text-stroke: 1.5px var(--ink); }
+.coin-ico { flex: none; display: block; }
 .xp-wrap { position: relative; display: inline-block; }
 .xp-gain {
   position: absolute; left: 50%; top: 100%; margin-top: 12px; transform: translateX(-50%); z-index: 2;
@@ -202,13 +203,23 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--teal); outl
 .icon-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
 .avatar { display: block; flex: none; }
 @media (max-width: 480px) {
-  .hud { gap: 5px; padding-left: 6px; padding-right: 6px; }
+  .hud { gap: 4px; padding-left: 5px; padding-right: 5px; }
   .hud-name { display: none; }
-  .hud-player { padding: 0; min-width: 50px; justify-content: center; }
-  .pill { padding: 0 7px; font-size: 17px; gap: 4px; }
+  .hud-player { padding: 0; min-width: 46px; justify-content: center; }
+  .hud-player .avatar { width: 40px; height: 40px; }
+  .pill { padding: 0 5px; font-size: 15px; gap: 3px; border-width: 2.5px; border-radius: 12px; }
+  .pill-ico { font-size: 10px; padding: 2px 3px; border-width: 1.5px; border-radius: 6px; }
+  .star-ico { font-size: 18px; }
+  .pill svg { width: 17px; height: 17px; }
   .icon-btn { width: 44px; height: 44px; }
-  .hud-stats { gap: 4px; }
-  .hud-player { min-width: 48px; }
+  .hud-stats { gap: 3px; }
+}
+@media (max-width: 400px) {
+  .hud { gap: 3px; padding-left: 4px; padding-right: 4px; }
+  .hud-stats { gap: 2px; }
+  .pill { padding: 0 4px; font-size: 14px; }
+  .pill svg { width: 15px; height: 15px; }
+  .icon-btn { width: 42px; }
 }
 
 /* ---- toasts ---- */
@@ -219,6 +230,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--teal); outl
 }
 .toast.unlock { background: var(--teal); color: #fff; text-shadow: 0 2px 0 var(--ink); }
 .toast.badge { background: var(--red); color: var(--paper); }
+.toast.spike { background: var(--gold); border-color: var(--ink); }
 @keyframes toast-in { from { transform: translateY(-16px) scale(.8); opacity: 0; } }
 
 /* ---- sheets / cards ---- */
@@ -278,7 +290,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--teal); outl
 .hats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .hat { width: 100%; max-width: 56px; aspect-ratio: 1; min-height: 44px; padding: 0; display: grid; place-items: center; background: #fff; border: 3px solid var(--ink); border-radius: 14px; cursor: pointer; }
 .hat.on { background: var(--c); box-shadow: 0 0 0 3px var(--gold), 0 3px 0 3px var(--ink); }
-.diffs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.diffs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .diff {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; padding: 6px 4px; text-align: center;
   background: #fff; border: 3px solid var(--ink); border-radius: 14px; cursor: pointer; color: var(--ink);

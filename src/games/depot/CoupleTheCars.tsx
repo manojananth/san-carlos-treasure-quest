@@ -17,6 +17,7 @@ const ORDER: Record<Difficulty, CarKind[]> = {
   rookie: ['tender', 'mail', 'passenger', 'caboose'],
   pro: ['tender', 'mail', 'passenger', 'coach', 'caboose'],
   legend: ['tender', 'mail', 'passenger', 'coach', 'freight', 'caboose'],
+  hunter: ['tender', 'mail', 'passenger', 'coach', 'tanker', 'freight', 'caboose'],
 };
 
 /** Pro and Legend have no silhouettes: the order comes from this clue card instead */
@@ -34,16 +35,25 @@ const CLUES: Record<Difficulty, string[] | null> = {
     'The brown freight car rolls right in front of the caboose.',
     'The caboose waves goodbye at the very end.',
   ],
+  // Treasure Hunter: 7 cars, clues in riddle form, no slot silhouettes
+  hunter: [
+    'The coal wagon leads the train. Letters ride right behind it.',
+    'Passengers board third. The cream coach never leaves their side.',
+    'The silver tank rolls in front of the brown freight car.',
+    'The caboose waves goodbye right after the freight.',
+  ],
 };
 
 const GOALS: Record<Difficulty, string> = {
   rookie: 'Drag each car onto its numbered slot behind the locomotive. Match the shadows!',
   pro: 'Drag each car onto its numbered slot behind the locomotive. Read the clue card to get the order.',
   legend: 'Build the whole train in the right order using only the clue card. Be quick!',
+  hunter: 'Seven cars and a riddling clue card. No shadows to match: work out the order, then couple them fast!',
 };
 
-const BASE_SECONDS = 45;
-const STAR_SCORE: [number, number] = [15, 40]; // score = % of time left - 10 per mistake
+const BASE_SECONDS: Record<Difficulty, number> = { rookie: 45, pro: 45, legend: 45, hunter: 58 };
+// score = % of time left - 10 per mistake; Hunter's seven cars need a little less
+const STAR_SCORE: Record<Difficulty, [number, number]> = { rookie: [15, 40], pro: [15, 40], legend: [15, 40], hunter: [10, 30] };
 
 // ---------------------------------------------------------------- stage geometry (game units)
 const W = 400;
@@ -173,7 +183,7 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
   const n = order.length;
   const lay = useMemo(() => layoutFor(n), [n]);
   const clues = CLUES[difficulty];
-  const totalMs = BASE_SECONDS * timeScale * 1000;
+  const totalMs = BASE_SECONDS[difficulty] * timeScale * 1000;
 
   // cars start shuffled in the yard
   const [cars] = useState<CarState[]>(() => {
@@ -257,7 +267,7 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
       if (!done) return;
       const left = getRemaining() / totalMs;
       const score = left * 100 - mistakesRef.current * 10;
-      const stars = starsFor(score, STAR_SCORE);
+      const stars = starsFor(score, STAR_SCORE[difficulty]);
       const m = mistakesRef.current;
       const detail = m === 0 ? 'No mistakes!' : `${m} wrong ${m === 1 ? 'try' : 'tries'}.`;
       api.finish(stars, `${stars === 3 ? 'All aboard! ' : 'Train built! '}${detail}`);
@@ -436,7 +446,7 @@ function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScal
       <div className={`cc-row${clues ? ' has-clues' : ''}`}>
         {clues && (
           <aside className="cc-clues" aria-label="Clue card">
-            <h3>Clue card</h3>
+            <h3>{difficulty === 'hunter' ? 'Riddling clue card' : 'Clue card'}</h3>
             <ul>{clues.map((c) => <li key={c}>{c}</li>)}</ul>
           </aside>
         )}

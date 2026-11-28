@@ -237,3 +237,45 @@ gesture-retry unlock + `navigator.audioSession.type = 'playback'` for the silent
 - **Explorer gear** (`src/gear/*`, explorer SVG layers, a Shop sheet from the menu and profile screen): 5 hats,
   4 backpacks, 4 trail pets (a pet trots beside the explorer on the map), original SVG art, prices 40–250 coins.
   Equipped gear shows on the map explorer, the HUD avatar and the profile card.
+
+### M5 foundation (phase 1, implemented)
+Everything below is in place; phase 2 builders extend it without touching these contracts.
+
+**Difficulty / rules** (`src/state/rules.ts`, `types.ts`)
+- `Difficulty` = `'rookie' | 'pro' | 'legend' | 'hunter'`; `DIFFICULTIES` lists all four (pickers render a 2x2 grid). `DIFFICULTY.hunter`:
+  label "Treasure Hunter", tier `expert`, riddle timer 25 s, hint 30 XP, XP x2.0, `timeScale` 0.6.
+- `Tier` (`src/data/riddles.ts`) = `'easy' | 'medium' | 'hard' | 'expert'`; `ContentTier` is the three with written content.
+  `getRiddle(stop, tier, seed?)` maps `expert` to the `hard` riddle until phase 2 writes expert content; `seed` is accepted but unused yet.
+- Badges: `master-hunter` (finish a run on hunter, not `mixed`) and `spike-collector` (all `SPIKES`, awarded in `findSpike`). `BADGES`, `BADGE_IDS` (rules.ts).
+- Coin constants (flat, no multiplier): `COIN_PER_STAR` 5, `COIN_FIRST_TRY_RIDDLE` 5, `COIN_SPIKE` 15, `COIN_CHEST` 50.
+
+**Riddle engine** (`reducer.ts`, `RiddleCard.tsx`)
+- `answerRiddle { correct: boolean; mark?: string }`: the UI judges correctness. A wrong answer costs a try and, when `mark` is given,
+  pushes it to `RiddleState.wrong: string[]` (a repeated mark is ignored, so double taps never cost two tries). A correct answer unlocks the next
+  stop. `RiddleCard` builds `mark = String(choiceIndex)`; other kinds should use their own mark (tapped spot id, guessed word...).
+- `Run.seed: number` (31-bit, `seedFrom(now)`, set by `newRun` for createProfile / startRun / resetRun / selectProfile). Use it to pick a riddle from
+  a pool deterministically: `getRiddle(stop, tier, run.seed)`; App already passes it.
+- Storage migration (`storage.ts`, save version stays 1): numeric `wrong` becomes strings, a missing `seed` is derived from `startedAt`, missing
+  `coins`/`gear`/`spikes` default to 0 / empty; unknown gear or spike ids and un-owned or wrong-slot equips are dropped.
+
+**Economy and collections** (`Profile` in `types.ts`)
+- `Profile.coins` (persist across runs), `Profile.gear { owned: string[]; equipped: { hat?; pack?; pet? } }`, `Profile.spikes: string[]`.
+- Actions: `buyItem { id }` (catalog price, enough coins, not already owned), `equip { slot, id | null }` (must be owned and match the slot;
+  `null` unequips), `findSpike { id }` (known id, once per profile, +15 coins; the 8th also awards `spike-collector` into `run.earned` and `badges`).
+  Coins also come from `finishChallenge` (5 per star), a first-try riddle (5) and `openChest` (50).
+- Catalog `src/data/gear.ts`: `GEAR` (5 hats, 4 packs, 4 pets, ids like `hat-crown`, `pet-pup`, prices 40-250), `GearSlot`, `gearItem(id)`, `isGearId`,
+  `gearBySlot(slot)`, `GEAR_SLOTS`, `SLOT_LABEL`. Spikes `src/data/spikes.ts`: `SPIKES` (8, `lonLat: null` until phase 2), `spikeDef(id)`, `isSpikeId`.
+- UI: HUD has a coin pill (`data-testid="coins"`, compact chips so it fits 390 px even with 4-digit values). App shows a `spike` toast when
+  `profile.spikes` grows (`spikeName(id)` from reducer.ts), so a map hook only has to dispatch `findSpike`.
+
+**Treasure Hunter twists** (each game reads `difficulty === 'hunter'`; Rookie/Pro/Legend are unchanged)
+| game | Hunter twist |
+|---|---|
+| depot | 7 cars (new `tanker` car art), riddling clue card, no silhouettes; 58 s x 0.6 = 34.8 s, stars at 10 / 30 |
+| laurel | 7 items incl. tiny brass button + ruby tie pin (tap radius 14 vs 22); 55 s x 0.6, wrong tap -3 s; lights out twice, best start counts: < 350 ms = 3 pts for 3 stars (`scoreFor(..., hunter)`) |
+| cityhall | 7 scrolls, 10 s fixed per scroll, 4 choices (`Fact.quiz.decoy` is the extra wrong answer), keys 1-4, 3 stars at 6 right |
+| burton | 20 / 27 / 33 / 39 / 45 yd, no aim guide, NOW wind 1.6-2.6 plus a GUST (`simulate(..., gust)`) that switches wind at 0.8-1.3 s of flight; pill shows both |
+| bigcanyon | `HUNTER_COURSE`: 17 obstacles, 4 doubles 58-62 apart (land in the gap, jump again), 45 s x 0.6 = 27 s, `courseFor(difficulty)` |
+| highlands | goalie reads 45 % of shots, lean hold halved (`TELL`), corner zones inset 13 units (`EDGE`) so shots near a post or the bar are wide / over |
+| hiller | no updrafts (`NUDGES.hunter = 0`), rings bob +-22 around `BOB_Y` every 2.6 s (`ringY(i, clock)`; the bob clock runs with the game loop so pause freezes it) |
+| finale | `FragmentPuzzle difficulty="hunter"`: every piece starts turned 90 / 180 / 270 degrees, no labels or slot ghosts; gold turn badge or `R` rotates; a piece counts when in its slot AND upright (`isSolved`) |

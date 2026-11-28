@@ -6,7 +6,7 @@ import { MiniGameShell, Stage, clientToStage, feedback, usePausableTimeline, use
 import type { ShellApi } from '../kit';
 import { GOLD, GOLD_DARK, GRASS, GRASS_DARK, INK, PAPER, RED, TEAL, TEAL_DARK, clamp, starsForGoals } from '../sports/theme';
 import { BALL_R, BAR_H, HALF_GAP, MAX_YAW, POST_TOP, px, py, scaleAt, simulate } from '../sports/kick';
-import type { KickOutcome } from '../sports/kick';
+import type { Gust, KickOutcome } from '../sports/kick';
 import { useConfetti } from '../sports/confetti';
 import { sfx } from '../../audio/sfx';
 import { Pips } from '../sports/Pips';
@@ -16,13 +16,18 @@ import './FieldGoal.css';
 const W = 400;
 const H = 300;
 const KICKS = 5;
-const DISTANCES = [15, 20, 25, 30, 35];
-const GUIDE: Record<Difficulty, number> = { rookie: 0.9, pro: 0.6, legend: 0.35 };
+const DISTANCES: Record<Difficulty, number[]> = {
+  rookie: [15, 20, 25, 30, 35], pro: [15, 20, 25, 30, 35], legend: [15, 20, 25, 30, 35],
+  hunter: [20, 27, 33, 39, 45], // long kicks
+};
+/** fraction of the flight the dotted aim guide shows; Treasure Hunter has none */
+const GUIDE: Record<Difficulty, number> = { rookie: 0.9, pro: 0.6, legend: 0.35, hunter: 0 };
 const MAX_PULL = 80;
 const GOALS: Record<Difficulty, string> = {
   rookie: 'Drag back from the ball to aim and set power, then let go. Send it between the posts and over the bar!',
   pro: 'Drag back from the ball to aim and set power. Watch the wind arrow: it bends the kick!',
   legend: 'Drag back to aim and set power. The wind is strong and the guide is short. Kick 5 times!',
+  hunter: 'Long kicks, no aim guide! The wind gusts and changes direction while the ball flies. Read NOW and GUST, then aim off.',
 };
 const MSG: Record<KickOutcome, [string, string]> = {
   goal: ['It’s good!', 'Right between the posts!'],
@@ -105,10 +110,19 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
     () => Array.from({ length: KICKS }, () => {
       const sign = Math.random() < 0.5 ? -1 : 1;
       if (difficulty === 'rookie') return 0;
+      if (difficulty === 'hunter') return sign * (1.6 + Math.random() * 1.0);
       return sign * (difficulty === 'pro' ? 0.5 + Math.random() * 0.5 : 1.0 + Math.random() * 0.7);
     }),
     [difficulty],
   );
+  // Treasure Hunter: the wind switches to a new strength / direction part-way through the flight
+  const gusts = useMemo<(Gust | undefined)[]>(
+    () => winds.map((w) => (difficulty === 'hunter'
+      ? { at: 0.8 + Math.random() * 0.5, wind: (Math.random() < 0.7 ? -Math.sign(w) : Math.sign(w)) * (1.0 + Math.random() * 1.2) }
+      : undefined)),
+    [winds, difficulty],
+  );
+  const [gustOn, setGustOn] = useState(false);
 
   const [kick, setKick] = useState(0);
   const [mode, setMode] = useState<Mode>('aim');
@@ -135,7 +149,9 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
   const flightObj = useRef({ tau: 0 });
   const behindRef = useRef(false);
 
-  const d = DISTANCES[kick];
+  const dists = DISTANCES[difficulty];
+  const d = dists[kick];
+  const gust = gusts[kick];
   const wind = winds[kick];
   const windLevel = Math.round(Math.abs(wind) / 0.35);
   const BALL0 = useMemo(() => ({ x: px(0, 0), y: py(BALL_R, 0), s: BALL_R * scaleAt(0) }), []);
@@ -161,7 +177,8 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
   const doKick = useCallback((yaw: number, p: number) => {
     if (!api.active || modeRef.current !== 'aim') return;
     const i = kickRef.current;
-    const sim = simulate(yaw, p, winds[i], DISTANCES[i]);
+    const sim = simulate(yaw, p, winds[i], dists[i], gusts[i]);
+    setGustOn(false);
     setModeBoth('fly');
     setDragging(null);
     dragStart.current = null;
@@ -182,6 +199,8 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
         const q = sim.pos(t);
         placeBall(q.x, q.z, q.y, fo.tau * spin);
         if (!behindRef.current && t >= sim.tc) { behindRef.current = true; setBehind(true); }
+        const g = gusts[i];
+        if (g && t >= g.at) setGustOn((on) => on || true);
       },
       onComplete: () => {
         const good = sim.outcome === 'goal';
@@ -219,12 +238,13 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
             setBehind(false);
             placeBall(0, 0, 0, 0);
             setModeBoth('aim');
-            setStatus(`Kick ${i + 2} of ${KICKS}, ${DISTANCES[i + 1]} yards.`);
+            setStatus(`Kick ${i + 2} of ${KICKS}, ${dists[i + 1]} yards.`);
+            setGustOn(false);
           },
         });
       },
     });
-  }, [api, confetti, killTweensOf, placeBall, reduced, setAim, tween, winds]);
+  }, [api, confetti, dists, gusts, killTweensOf, placeBall, reduced, setAim, tween, winds]);
 
   // ---- pointer: slingshot drag back from the ball
   const toAim = useCallback((x0: number, y0: number, x1: number, y1: number) => {
@@ -307,6 +327,7 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
 
   // ---- aim guide (no wind): fraction of the flight depends on difficulty
   const guide = useMemo(() => {
+    if (!GUIDE[difficulty]) return [];
     const sim = simulate(aim.yaw, aim.p, 0, d);
     const n = 16;
     const out: { x: number; y: number; r: number }[] = [];
@@ -368,7 +389,20 @@ function Play({ difficulty, timeScale: _ts, api }: { difficulty: Difficulty; tim
           </g>
         )}
         {/* wind */}
-        {difficulty !== 'rookie' && (
+        {difficulty === 'hunter' && gust ? (
+          <g className="fg-wind" transform="translate(94 28)" pointerEvents="none">
+            <rect x={-88} y={-17} width={176} height={34} rx={10} fill={PAPER} stroke={INK} strokeWidth={2.5} />
+            {[{ w: wind, x: -44, label: 'NOW', on: !gustOn }, { w: gust.wind, x: 44, label: 'GUST', on: gustOn }].map((c) => (
+              <g key={c.label} opacity={c.on ? 1 : 0.45}>
+                <rect x={c.x - 40} y={-13} width={80} height={26} rx={8} fill={c.on ? '#ffe9a3' : 'none'} />
+                <g transform={`translate(${c.x + (c.w < 0 ? -22 : 22)} 0) scale(${c.w < 0 ? -0.7 : 0.7} 0.7)`}>
+                  <path d="M-12 -4 H4 V-10 L16 0 L4 10 V4 H-12 Z" fill={c.label === 'GUST' ? RED : TEAL} stroke={INK} strokeWidth={2.4} strokeLinejoin="round" />
+                </g>
+                <text x={c.x + (c.w < 0 ? 12 : -12)} y={5} textAnchor="middle" fontSize={12} fill={INK} fontFamily="'Lilita One', sans-serif">{c.label} {Math.round(Math.abs(c.w) / 0.35)}</text>
+              </g>
+            ))}
+          </g>
+        ) : difficulty !== 'rookie' && (
           <g className="fg-wind" transform="translate(58 28)" pointerEvents="none">
             <rect x={-52} y={-17} width={104} height={34} rx={10} fill={PAPER} stroke={INK} strokeWidth={2.5} />
             <g transform={`translate(${wind < 0 ? -30 : 30} 0) scale(${wind < 0 ? -1 : 1} 1)`}>

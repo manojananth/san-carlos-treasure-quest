@@ -9,8 +9,8 @@ import { GAMES } from './games/registry';
 import { sfx } from './audio/sfx';
 import { buzzTap } from './audio/haptics';
 import { GameProvider, useGame } from './state/GameContext';
-import { activeProfile, nextStopId, returnLegKey, stopIndex } from './state/reducer';
-import { DIFFICULTY, MAIN_STOPS, badgeName, treasureXp } from './state/rules';
+import { activeProfile, nextStopId, returnLegKey, spikeName, stopIndex } from './state/reducer';
+import { COIN_SPIKE, DIFFICULTY, MAIN_STOPS, badgeName, treasureXp } from './state/rules';
 import { Sheet } from './components/Sheet';
 import { HUD } from './components/HUD';
 import { ProfileScreen } from './components/ProfileScreen';
@@ -29,7 +29,7 @@ import type { Stop } from './data/stops';
 const DEBUG = typeof location !== 'undefined' && location.search.includes('debug');
 const newId = () => (globalThis.crypto?.randomUUID?.() ?? `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
 
-interface Toast { id: number; text: string; kind: 'unlock' | 'fragment' | 'badge' }
+interface Toast { id: number; text: string; kind: 'unlock' | 'fragment' | 'badge' | 'spike' }
 
 function ChallengeFlow({ profile, run, stop, paused, onFinish }: { profile: Profile; run: Run; stop: Stop; paused: boolean; onFinish: (s: 1 | 2 | 3) => void }) {
   const [started, setStarted] = useState(false);
@@ -130,6 +130,16 @@ function Game() {
     seen.current = n;
   }, [run, ready, key, pushToast]);
 
+  // a golden spike was found (map hook in phase 2 dispatches findSpike): toast it once per profile
+  const spikeSeen = useRef({ id: '', n: 0 });
+  const spikes = profile?.spikes;
+  useEffect(() => {
+    if (!profile || !spikes) { spikeSeen.current = { id: '', n: 0 }; return; }
+    const s = spikeSeen.current;
+    if (s.id === profile.id && spikes.length > s.n) pushToast(`Golden spike found: ${spikeName(spikes[spikes.length - 1])}! +${COIN_SPIKE} coins`, 'spike');
+    spikeSeen.current = { id: profile.id, n: spikes.length };
+  }, [profile?.id, spikes, pushToast]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const walk = useCallback(async () => {
     const r = runRef.current;
     if (!r || r.phase !== 'travel' || busy) return;
@@ -156,7 +166,7 @@ function Game() {
   const target = run ? nextStopId(run) : null;
   const targetStop = target ? STOPS[stopIndex(target)] : null;
   const tier = profile ? DIFFICULTY[profile.difficulty].tier : 'medium';
-  const riddle = target ? getRiddle(target, tier) : null;
+  const riddle = target ? getRiddle(target, tier, run?.seed) : null;
   const hat = profile ? hatColor(profile.avatar) : hatColor('red');
   const phase = run?.phase;
   const overlayOpen = overlay !== null;
@@ -241,9 +251,9 @@ function Game() {
             difficulty={profile.difficulty}
             paused={overlayOpen}
             bonus={!!targetStop?.bonus}
-            onAnswer={(choice) => {
-              if (choice === riddle.answer) setBusy(true); // the unlock fly-to starts next; keep Walk disabled until it ends
-              dispatch({ type: 'answerRiddle', choice });
+            onAnswer={(correct, mark) => {
+              if (correct) setBusy(true); // the unlock fly-to starts next; keep Walk disabled until it ends
+              dispatch({ type: 'answerRiddle', correct, mark });
             }}
             onHint={() => dispatch({ type: 'useHint' })}
             onTimeout={() => dispatch({ type: 'riddleTimeout' })}
@@ -255,7 +265,7 @@ function Game() {
           <ReturnCard key={key} name={profile.name} fromTheme={STOPS[atIdx].theme} onGo={walkBack} />
         )}
         {profile && run && phase === 'finale' && run.finaleStep === 'puzzle' && (
-          <FragmentPuzzle key={key} paused={overlayOpen} onSolved={() => dispatch({ type: 'puzzleSolved' })} />
+          <FragmentPuzzle key={key} difficulty={profile.difficulty} paused={overlayOpen} onSolved={() => dispatch({ type: 'puzzleSolved' })} />
         )}
         {profile && run && phase === 'finale' && (run.finaleStep === 'chest' || run.finaleStep === 'done') && (
           <TreasureChest

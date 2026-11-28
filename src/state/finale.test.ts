@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RIDDLES } from '../data/riddles';
-import { activeProfile, finaleOrigin, initialState, nextStopId, reducer, returnLegKey } from './reducer';
+import { activeProfile, finaleOrigin, initialState, reducer, returnLegKey } from './reducer';
 import type { Action } from './reducer';
 import { parseSave } from './storage';
 import { riddleStartMs, treasureXp, RIDDLE_MIN_RESUME_MS } from './rules';
@@ -12,11 +12,10 @@ const create = (difficulty: Difficulty = 'pro'): GameState =>
   run(initialState(), { type: 'createProfile', id: 'p1', name: 'Ana', avatar: 'teal', difficulty, now: T });
 const P = (s: GameState) => activeProfile(s)!;
 const R = (s: GameState) => P(s).run!;
-const tierOf = (d: Difficulty) => (d === 'rookie' ? 'easy' : d === 'pro' ? 'medium' : 'hard');
 const challenge = (s: GameState, stars: Stars = 3) =>
   run(s, ...(R(s).phase === 'intro' ? [{ type: 'continueIntro' } as Action] : []), { type: 'finishChallenge', stars, now: T });
 const solve = (s: GameState) =>
-  reducer(s, { type: 'answerRiddle', choice: RIDDLES[nextStopId(R(s))! as keyof typeof RIDDLES][tierOf(P(s).difficulty)].answer });
+  reducer(s, { type: 'answerRiddle', correct: true });
 const advance = (s: GameState, stars: Stars = 3) => run(solve(challenge(s, stars)), { type: 'startWalk' }, { type: 'arrive', now: T });
 /** a run standing at Summit Outpost with its challenge done (riddle for the bonus pending) */
 const atSummit = (d: Difficulty = 'pro') => {
@@ -175,7 +174,7 @@ describe('persistent riddle timer', () => {
   it('a wrong answer or a timeout starts the next try with no saved clock', () => {
     const s0 = clock(timed(), true, 42_000);
     const wrong = ([0, 1, 2] as const).find((c) => c !== RIDDLES.laurel.medium.answer)!;
-    expect(rs(reducer(s0, { type: 'answerRiddle', choice: wrong }))?.deadlineAt).toBeUndefined();
+    expect(rs(reducer(s0, { type: 'answerRiddle', correct: false, mark: String(wrong) }))?.deadlineAt).toBeUndefined();
     const t = reducer(clock(s0, false, 10_000), { type: 'riddleTimeout' });
     expect(rs(t)).toMatchObject({ tries: 1 });
     expect(rs(t)?.remainingMs).toBeUndefined();

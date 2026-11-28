@@ -1,6 +1,9 @@
 import type { StopId } from './stops';
 
-export type Tier = 'easy' | 'medium' | 'hard';
+/** Text tiers that have written content. */
+export type ContentTier = 'easy' | 'medium' | 'hard';
+/** Difficulty tiers; `expert` (Treasure Hunter) reuses `hard` content until the phase 2 expert riddles exist. */
+export type Tier = ContentTier | 'expert';
 
 export interface Riddle {
   text: string;
@@ -13,7 +16,7 @@ export interface Riddle {
 
 /** Riddles for every stop after the depot: you solve the riddle to learn where the next stop is. */
 export type RiddleStopId = Exclude<StopId, 'depot'>;
-export const RIDDLES: Record<RiddleStopId, Record<Tier, Riddle>> = {
+export const RIDDLES: Record<RiddleStopId, Record<ContentTier, Riddle>> = {
   laurel: {
     easy: {
       text: 'I am a street full of shops, cafés and bakeries. Walk a few steps from the old stone train depot and you will find me. Where am I?',
@@ -136,5 +139,6 @@ export const RIDDLES: Record<RiddleStopId, Record<Tier, Riddle>> = {
   },
 };
 
-export const getRiddle = (stop: StopId, tier: Tier): Riddle | null =>
-  stop === 'depot' ? null : RIDDLES[stop][tier];
+/** `seed` (Run.seed) is for the phase 2 riddle pools; today every tier has exactly one riddle per stop. */
+export const getRiddle = (stop: StopId, tier: Tier, _seed = 0): Riddle | null =>
+  stop === 'depot' ? null : RIDDLES[stop][tier === 'expert' ? 'hard' : tier];

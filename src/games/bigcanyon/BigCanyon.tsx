@@ -5,7 +5,7 @@ import { MiniGameShell, Stage, feedback, starsFor, useLoop } from '../kit';
 import type { ShellApi } from '../kit';
 import { EXPLORER_SVG } from '../../components/explorerSvg';
 import {
-  BASE_SECONDS, COURSE, GEM_BONUS, STAR_SCORE, WIN_COAST, createSim, groundAngle, groundY, pressJump, remainingSeconds, scoreOf, stepSim,
+  BASE_SECONDS_BY, GEM_BONUS, STAR_SCORE, WIN_COAST, createSim, groundAngle, groundY, courseFor, pressJump, remainingSeconds, scoreOf, stepSim,
 } from './canyonSim';
 import {
   Bridge, Clouds, GemArt, HillLayer, INK, ObstacleArt, Signs, SkyBackdrop, Terrain, Trees, Tufts,
@@ -25,6 +25,7 @@ const GOALS: Record<Difficulty, string> = {
   rookie: 'Run up the canyon! Tap or press Space to jump roots and rocks. Grab echo-gems for extra time.',
   pro: 'Beat the clock to the summit! Tap or press Space to jump roots and rocks. Gems add time.',
   legend: 'Tight clock! Jump every root and rock, grab gems, and hold to run a bit faster.',
+  hunter: 'A longer, rougher trail! Some roots and rocks come in pairs: land in the gap and jump again right away. Grab gems and hold to run faster.',
 };
 
 function HowToDiagram() {
@@ -47,13 +48,14 @@ function HowToDiagram() {
 
 interface Hud { remaining: number; gems: number; stumbles: number; pop: boolean }
 
-function Play({ difficulty: _difficulty, timeScale, api }: { difficulty: Difficulty; timeScale: number; api: ShellApi }) {
-  const limit = BASE_SECONDS * timeScale;
+function Play({ difficulty, timeScale, api }: { difficulty: Difficulty; timeScale: number; api: ShellApi }) {
+  const COURSE = courseFor(difficulty);
+  const limit = BASE_SECONDS_BY[difficulty] * timeScale;
   const reduced = api.reducedMotion;
   const apiRef = useRef(api);
   apiRef.current = api;
 
-  const sim = useRef(createSim());
+  const sim = useRef(createSim(COURSE));
   const held = useRef(false);
   const ended = useRef(false);
   const shake = useRef(0);
@@ -147,7 +149,7 @@ function Play({ difficulty: _difficulty, timeScale, api }: { difficulty: Difficu
   const step = useCallback((dt: number) => {
     if (ended.current) return;
     const s = sim.current;
-    stepSim(s, dt, held.current);
+    stepSim(s, dt, held.current, COURSE);
     if (shake.current > 0) shake.current = Math.max(0, shake.current - dt);
     for (const r of ripples.current) r.age += dt;
     for (const e of s.events.splice(0)) {
@@ -180,7 +182,7 @@ function Play({ difficulty: _difficulty, timeScale, api }: { difficulty: Difficu
       ended.current = true;
       apiRef.current.finish(1, `So close! The summit was just ahead. You grabbed ${s.gems} echo-gems. Try again!`);
     }
-  }, [limit]);
+  }, [limit, COURSE]);
 
   useLoop(step, draw, api.active);
 
@@ -222,7 +224,7 @@ function Play({ difficulty: _difficulty, timeScale, api }: { difficulty: Difficu
         <g key={`o${i}`} transform={`translate(${o.x} ${groundY(o.x) + 1}) rotate(${groundAngle(o.x).toFixed(1)})`}><ObstacleArt o={o} /></g>
       ))}
     </>
-  ), []);
+  ), [COURSE]);
   const frontTrees = useMemo(() => <Trees front />, []);
 
   const low = hud.remaining / limit < 0.25;

@@ -1,5 +1,6 @@
 import type { StopId } from '../data/stops';
 import type { Tier } from '../data/riddles';
+import { SPIKES } from '../data/spikes';
 import type { BadgeId, Difficulty } from './types';
 
 export const MAX_PROFILES = 4;
@@ -20,8 +21,9 @@ export const DIFFICULTY: Record<Difficulty, DifficultyRules> = {
   rookie: { label: 'Rookie', tier: 'easy', riddleSeconds: null, hintCost: 5, xpMult: 1.0, timeScale: 1.3 },
   pro: { label: 'Pro', tier: 'medium', riddleSeconds: 60, hintCost: 10, xpMult: 1.25, timeScale: 1.0 },
   legend: { label: 'Legend', tier: 'hard', riddleSeconds: 35, hintCost: 20, xpMult: 1.5, timeScale: 0.75 },
+  hunter: { label: 'Treasure Hunter', tier: 'expert', riddleSeconds: 25, hintCost: 30, xpMult: 2.0, timeScale: 0.6 },
 };
-export const DIFFICULTIES: Difficulty[] = ['rookie', 'pro', 'legend'];
+export const DIFFICULTIES: Difficulty[] = ['rookie', 'pro', 'legend', 'hunter'];
 
 /** Stops that give a map fragment (the bonus stop does not). */
 export const MAIN_STOPS: StopId[] = ['depot', 'laurel', 'cityhall', 'burton', 'bigcanyon', 'highlands'];
@@ -31,6 +33,11 @@ export const BONUS_XP = 40;
 export const STAR_XP = 20;
 /** Treasure chest bonus (before the difficulty multiplier), paid once per run. */
 export const TREASURE_XP = 100;
+/** Coins are flat (no difficulty multiplier). */
+export const COIN_PER_STAR = 5;
+export const COIN_FIRST_TRY_RIDDLE = 5;
+export const COIN_SPIKE = 15;
+export const COIN_CHEST = 50;
 export const SHARP_MIND_COUNT = 3;
 export const STAR_COLLECTOR_COUNT = 15;
 
@@ -43,7 +50,10 @@ export const BADGES: { id: BadgeId; name: string; desc: string }[] = [
   { id: 'trailblazer', name: 'Trailblazer', desc: 'Finish a whole run.' },
   { id: 'legend', name: 'Legend of San Carlos', desc: 'Finish a run on Legend.' },
   { id: 'treasure-finder', name: 'Treasure Finder', desc: "Open the railroad worker's chest." },
+  { id: 'master-hunter', name: 'Master Treasure Hunter', desc: 'Finish a run on Treasure Hunter.' },
+  { id: 'spike-collector', name: 'Spike Collector', desc: `Find all ${SPIKES.length} golden spikes.` },
 ];
+export const BADGE_IDS: BadgeId[] = BADGES.map((b) => b.id);
 export const badgeName = (id: BadgeId) => BADGES.find((b) => b.id === id)?.name ?? id;
 
 export const riddleXp = (tries: number, mult: number) => Math.round((tries === 0 ? 30 : tries === 1 ? 15 : 5) * mult);
