@@ -1,11 +1,11 @@
-/** Explorer gear catalog (M5). Art comes in phase 2; ids are stable save keys. */
+/** Explorer gear catalog (M5). Art lives in src/gear/art.ts; ids are stable save keys. */
 export type GearSlot = 'hat' | 'pack' | 'pet';
 
 export interface GearItem {
   id: string;
   name: string;
   slot: GearSlot;
-  /** price in coins (40-250) */
+  /** price in coins (40-500): a Pro run earns ~150, so the cheapest take one run, the crown ~3-4 */
   price: number;
 }
 
@@ -14,18 +14,18 @@ export const SLOT_LABEL: Record<GearSlot, string> = { hat: 'Hats', pack: 'Backpa
 
 export const GEAR: GearItem[] = [
   { id: 'hat-conductor', name: 'Conductor Cap', slot: 'hat', price: 40 },
-  { id: 'hat-propeller', name: 'Propeller Beanie', slot: 'hat', price: 80 },
-  { id: 'hat-tricorn', name: 'Pirate Tricorn', slot: 'hat', price: 120 },
-  { id: 'hat-cowboy', name: 'Cowboy Hat', slot: 'hat', price: 160 },
-  { id: 'hat-crown', name: 'Golden Crown', slot: 'hat', price: 250 },
+  { id: 'hat-propeller', name: 'Propeller Beanie', slot: 'hat', price: 100 },
+  { id: 'hat-tricorn', name: 'Pirate Tricorn', slot: 'hat', price: 180 },
+  { id: 'hat-cowboy', name: 'Cowboy Hat', slot: 'hat', price: 300 },
+  { id: 'hat-crown', name: 'Golden Crown', slot: 'hat', price: 500 },
   { id: 'pack-satchel', name: 'Canvas Satchel', slot: 'pack', price: 50 },
-  { id: 'pack-rucksack', name: 'Explorer Rucksack', slot: 'pack', price: 90 },
-  { id: 'pack-bedroll', name: 'Bedroll Pack', slot: 'pack', price: 140 },
-  { id: 'pack-rocket', name: 'Rocket Pack', slot: 'pack', price: 220 },
+  { id: 'pack-rucksack', name: 'Explorer Rucksack', slot: 'pack', price: 110 },
+  { id: 'pack-bedroll', name: 'Bedroll Pack', slot: 'pack', price: 220 },
+  { id: 'pack-rocket', name: 'Rocket Pack', slot: 'pack', price: 400 },
   { id: 'pet-pup', name: 'Trail Pup', slot: 'pet', price: 60 },
-  { id: 'pet-parrot', name: 'Parrot', slot: 'pet', price: 100 },
-  { id: 'pet-raccoon', name: 'Raccoon', slot: 'pet', price: 150 },
-  { id: 'pet-goat', name: 'Baby Goat', slot: 'pet', price: 200 },
+  { id: 'pet-parrot', name: 'Parrot', slot: 'pet', price: 130 },
+  { id: 'pet-raccoon', name: 'Raccoon', slot: 'pet', price: 260 },
+  { id: 'pet-goat', name: 'Baby Goat', slot: 'pet', price: 450 },
 ];
 
 export const gearItem = (id: string): GearItem | undefined => GEAR.find((g) => g.id === id);

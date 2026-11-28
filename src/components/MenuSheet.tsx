@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
+import { Avatar } from './Avatar';
 import { Sheet } from './Sheet';
 import { BADGES, DIFFICULTIES, DIFFICULTY } from '../state/rules';
 import type { Difficulty, Profile } from '../state/types';
@@ -13,14 +15,26 @@ interface Props {
   onLeaderboard: () => void;
   onSwitch: () => void;
   onRestart: () => void;
+  onShop: () => void;
+  /** e.g. the golden spike counter from src/map/secrets.ts */
+  spikeCounter?: ReactNode;
 }
 
-export function MenuSheet({ profile, onClose, onDifficulty, onLeaderboard, onSwitch, onRestart }: Props) {
+export function MenuSheet({ profile, onClose, onDifficulty, onLeaderboard, onSwitch, onRestart, onShop, spikeCounter }: Props) {
   const [confirm, setConfirm] = useState(false);
   const { state, dispatch } = useGame();
   const { muted, haptics } = state.settings;
   return (
     <Sheet title="Menu" heading={<>Explorer <span>menu</span></>} onClose={onClose} className="menu">
+      <div className="menu-shop">
+        <Avatar hat={profile.avatar} gear={profile.gear.equipped} size={48} />
+        <div className="menu-wallet">
+          <b data-testid="menu-coins"><span className="coin-dot" aria-hidden="true" />{profile.coins} coins</b>
+          {spikeCounter}
+        </div>
+        <button type="button" className="btn btn-go" data-testid="open-shop" onClick={onShop}>Explorer Shop</button>
+      </div>
+
       <fieldset className="field">
         <legend>Difficulty (changes the riddle and timer right away)</legend>
         <div className="diffs" role="radiogroup" aria-label="Difficulty">

@@ -17,8 +17,11 @@ import { ProfileScreen } from './components/ProfileScreen';
 import { StoryCard } from './components/StoryCard';
 import { StopCard } from './components/StopCard';
 import { RiddleCard } from './components/RiddleCard';
+import type { PickOptions } from './map/pick';
 import { SummaryCard } from './components/SummaryCard';
 import { MenuSheet } from './components/MenuSheet';
+import { ShopSheet } from './gear/ShopSheet';
+import type { Look } from './gear/look';
 import { Leaderboard } from './components/Leaderboard';
 import { ReturnCard } from './finale/ReturnCard';
 import { FragmentPuzzle } from './finale/FragmentPuzzle';
@@ -52,7 +55,7 @@ function Game() {
   const mapRef = useRef<GameMapHandle>(null);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [overlay, setOverlay] = useState<null | 'menu' | 'leaderboard'>(null);
+  const [overlay, setOverlay] = useState<null | 'menu' | 'leaderboard' | 'shop'>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [announce, setAnnounce] = useState('');
   const queue = useRef<Toast[]>([]);
@@ -161,20 +164,26 @@ function Game() {
   }, [busy, dispatch]);
 
   // close the menu if the player/run changes under it
-  useEffect(() => { setOverlay(null); }, [key]);
+  const shopAfterPick = useRef(false);
+  useEffect(() => { setOverlay(shopAfterPick.current ? 'shop' : null); shopAfterPick.current = false; }, [key]);
 
   const target = run ? nextStopId(run) : null;
   const targetStop = target ? STOPS[stopIndex(target)] : null;
   const tier = profile ? DIFFICULTY[profile.difficulty].tier : 'medium';
-  const riddle = target ? getRiddle(target, tier, run?.seed) : null;
-  const hat = profile ? hatColor(profile.avatar) : hatColor('red');
+  const riddle = useMemo(() => (target ? getRiddle(target, tier, run?.seed) : null), [target, tier, run?.seed]);
+  const pickOnMap = useCallback((o: PickOptions) => mapRef.current?.pick(o) ?? Object.assign(() => {}, { mark: () => {} }), []);
+  const avatarId = profile?.avatar, gearHat = profile?.gear.equipped.hat, gearPack = profile?.gear.equipped.pack, gearPet = profile?.gear.equipped.pet;
+  const look = useMemo<Look>(
+    () => ({ color: hatColor(avatarId ?? 'red'), hat: gearHat, pack: gearPack, pet: gearPet }),
+    [avatarId, gearHat, gearPack, gearPet],
+  );
   const phase = run?.phase;
   const overlayOpen = overlay !== null;
 
   return (
     <div className="app">
       <AudioSettingsSync />
-      <GameMap ref={mapRef} states={states} legs={legs} hat={hat} onReady={() => setReady(true)} />
+      <GameMap ref={mapRef} states={states} legs={legs} look={look} foundSpikes={profile?.spikes} onSpike={(id) => dispatch({ type: 'findSpike', id })} onReady={() => setReady(true)} />
 
       {!ready && (
         <div className="loading" role="status">
@@ -230,6 +239,7 @@ function Game() {
             onCreate={(p) => dispatch({ type: 'createProfile', id: newId(), ...p, now: Date.now() })}
             onDelete={(id) => dispatch({ type: 'deleteProfile', id })}
             onLeaderboard={() => setOverlay('leaderboard')}
+            onShop={(id) => { shopAfterPick.current = true; dispatch({ type: 'selectProfile', id, now: Date.now() }); }}
           />
         )}
         {profile && run && phase === 'intro' && <StoryCard name={profile.name} onBegin={() => dispatch({ type: 'continueIntro' })} />}
@@ -250,6 +260,7 @@ function Game() {
             state={run.riddles[target]}
             difficulty={profile.difficulty}
             paused={overlayOpen}
+            pick={pickOnMap}
             bonus={!!targetStop?.bonus}
             onAnswer={(correct, mark) => {
               if (correct) setBusy(true); // the unlock fly-to starts next; keep Walk disabled until it ends
@@ -290,10 +301,12 @@ function Game() {
           onClose={() => setOverlay(null)}
           onDifficulty={(difficulty) => dispatch({ type: 'setDifficulty', difficulty })}
           onLeaderboard={() => setOverlay('leaderboard')}
+          onShop={() => setOverlay('shop')}
           onSwitch={() => { setOverlay(null); dispatch({ type: 'selectProfile', id: null, now: Date.now() }); }}
           onRestart={() => { setOverlay(null); dispatch({ type: 'resetRun', now: Date.now() }); }}
         />
       )}
+      {profile && overlay === 'shop' && <ShopSheet profile={profile} onClose={() => setOverlay(null)} />}
       {overlay === 'leaderboard' && (
         <Leaderboard profiles={state.profiles} activeId={state.activeId} onClose={() => setOverlay(profile && run?.phase !== 'summary' ? 'menu' : null)} />
       )}

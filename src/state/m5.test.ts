@@ -133,14 +133,14 @@ describe('old saves load', () => {
 });
 
 describe('gear and coins', () => {
-  it('the catalog has 5 hats, 4 packs, 4 pets priced 40-250 with unique ids', () => {
+  it('the catalog has 5 hats, 4 packs, 4 pets priced 40-500 with unique ids', () => {
     expect(GEAR.filter((g) => g.slot === 'hat')).toHaveLength(5);
     expect(GEAR.filter((g) => g.slot === 'pack')).toHaveLength(4);
     expect(GEAR.filter((g) => g.slot === 'pet')).toHaveLength(4);
     expect(new Set(GEAR.map((g) => g.id)).size).toBe(GEAR.length);
-    for (const g of GEAR) { expect(g.price).toBeGreaterThanOrEqual(40); expect(g.price).toBeLessThanOrEqual(250); }
+    for (const g of GEAR) { expect(g.price).toBeGreaterThanOrEqual(40); expect(g.price).toBeLessThanOrEqual(500); }
     expect(SPIKES).toHaveLength(8);
-    expect(SPIKES.every((k) => k.lonLat === null)).toBe(true);
+    expect(SPIKES.every((k) => k.lonLat.length === 2 && k.leg.includes('>'))).toBe(true);
   });
   it('buyItem checks the catalog, the price and double buys', () => {
     const price = gearItem('hat-conductor')!.price;
@@ -154,7 +154,7 @@ describe('gear and coins', () => {
     expect(reducer(poor, { type: 'buyItem', id: 'hat-conductor' })).toBe(poor);
   });
   it('equip needs ownership and the right slot; null unequips', () => {
-    let s = withCoins(create(), 500);
+    let s = withCoins(create(), 600);
     expect(reducer(s, { type: 'equip', slot: 'hat', id: 'hat-crown' })).toBe(s);
     s = run(s, { type: 'buyItem', id: 'hat-crown' }, { type: 'buyItem', id: 'pet-pup' });
     expect(reducer(s, { type: 'equip', slot: 'pet', id: 'hat-crown' })).toBe(s);

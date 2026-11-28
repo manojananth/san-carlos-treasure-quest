@@ -4,9 +4,11 @@ import along from '@turf/along';
 import length from '@turf/length';
 import { lineString } from '@turf/helpers';
 import type { LonLat } from '../data/stops';
-import { EXPLORER_SVG } from '../components/explorerSvg';
+import { explorerSvg } from '../components/explorerSvg';
+import { lookKey } from '../gear/look';
+import type { Look } from '../gear/look';
+import { petSvg } from '../gear/art';
 import { cumulative } from './geo';
-import { shade } from '../data/hats';
 
 // Keep walking time-accurate even when a frame is slow (map redraws can be heavy on weak GPUs).
 gsap.ticker.lagSmoothing(0);
@@ -21,6 +23,9 @@ export class Explorer {
   readonly marker: maplibregl.Marker;
   private el: HTMLDivElement;
   private flip: HTMLDivElement;
+  private body: HTMLDivElement;
+  private pet: HTMLDivElement;
+  private lookKey = '';
   private tween: gsap.core.Tween | null = null;
   private facing = 1;
   /** Resolves the in-flight walk: true when the leg finished, false when it was stopped. */
@@ -32,7 +37,13 @@ export class Explorer {
     this.el.style.zIndex = '100000';
     this.flip = document.createElement('div');
     this.flip.className = 'explorer-flip';
-    this.flip.innerHTML = EXPLORER_SVG;
+    this.pet = document.createElement('div');
+    this.pet.className = 'explorer-pet';
+    this.pet.hidden = true;
+    this.body = document.createElement('div');
+    this.body.className = 'explorer-body';
+    this.body.innerHTML = explorerSvg({});
+    this.flip.append(this.pet, this.body);
     this.el.appendChild(this.flip);
     this.marker = new maplibregl.Marker({ element: this.el, anchor: 'bottom' }).setLngLat(start).addTo(map);
   }
@@ -42,10 +53,14 @@ export class Explorer {
     return [p.lng, p.lat];
   }
 
-  /** Tint the safari hat with the player's chosen colour. */
-  setHat(color: string) {
-    this.el.style.setProperty('--hat-crown', color);
-    this.el.style.setProperty('--hat-brim', shade(color, 0.22));
+  /** Dress the explorer: hat colour, equipped hat and pack, and the trotting pet. */
+  setLook(look: Look) {
+    const key = lookKey(look);
+    if (key === this.lookKey) return;
+    this.lookKey = key;
+    this.body.innerHTML = explorerSvg(look);
+    this.pet.hidden = !look.pet;
+    this.pet.innerHTML = look.pet ? petSvg(look.pet, 'pet-svg') : '';
   }
 
   setPosition(p: LonLat) {

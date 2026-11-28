@@ -12,6 +12,8 @@ interface Props {
   onCreate: (p: { name: string; avatar: HatId; difficulty: Difficulty }) => void;
   onDelete: (id: string) => void;
   onLeaderboard: () => void;
+  /** open the Explorer Shop as this explorer */
+  onShop?: (id: string) => void;
 }
 
 const DIFF_BLURB: Record<Difficulty, string> = {
@@ -21,7 +23,7 @@ const DIFF_BLURB: Record<Difficulty, string> = {
   hunter: 'Expert riddles, 25 s, tough games',
 };
 
-export function ProfileScreen({ profiles, onPick, onCreate, onDelete, onLeaderboard }: Props) {
+export function ProfileScreen({ profiles, onPick, onCreate, onDelete, onLeaderboard, onShop }: Props) {
   const [adding, setAdding] = useState(profiles.length === 0);
   const [name, setName] = useState('');
   const [hat, setHat] = useState<HatId>('red');
@@ -54,15 +56,21 @@ export function ProfileScreen({ profiles, onPick, onCreate, onDelete, onLeaderbo
               ) : (
                 <>
                   <button type="button" className="profile-pick" onClick={() => onPick(p.id)} aria-label={`Play as ${p.name}`}>
-                    <Avatar hat={p.avatar} size={52} />
+                    <Avatar hat={p.avatar} gear={p.gear.equipped} size={52} />
                     <span className="profile-info">
                       <b>{p.name}</b>
                       <small>
                         {DIFFICULTY[p.difficulty].label} · {p.run ? `${p.run.xp} XP` : '0 XP'}
                         {p.run?.phase === 'summary' ? ' · quest done' : ''}
                       </small>
+                      <small className="profile-coins"><span className="coin-dot" aria-hidden="true" />{p.coins} coins</small>
                     </span>
                   </button>
+                  {onShop && (
+                    <button type="button" className="icon-btn small shop-btn" onClick={() => onShop(p.id)} aria-label={`Explorer Shop for ${p.name}`} title="Explorer Shop">
+                      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 9 L5.5 4 H18.5 L20 9 Z M5 9 V20 H19 V9 M10 20 V14 H14 V20" fill="#f2b632" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>
+                    </button>
+                  )}
                   <button type="button" className="icon-btn small" onClick={() => setConfirming(p.id)} aria-label={`Delete ${p.name}`}>
                     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
                   </button>

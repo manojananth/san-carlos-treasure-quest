@@ -6,8 +6,12 @@ import { STOPS } from '../data/stops';
 import type { LonLat } from '../data/stops';
 import { STYLE_URL, addTerrain, addTrailLayers, legFilter, tidyBaseMap } from './style';
 import { Explorer, prefersReducedMotion } from './explorer';
+import type { Look } from '../gear/look';
 import { cumulative } from './geo';
 import { sfx } from '../audio/sfx';
+import { useSpikes } from './secrets';
+import { startPick } from './pick';
+import type { PickHandle, PickOptions } from './pick';
 
 
 type Leg = { from: string; to: string; coords: LonLat[]; lengthM: number };
@@ -46,16 +50,23 @@ export interface GameMapHandle {
   restore(at: number, newest: number, allWalked?: boolean): void;
   /** Fly to the freshly unlocked stop, pause, then fly back framing the explorer and the stop. */
   flyToUnlock(stop: number): Promise<void>;
+  /** Map riddles: frame the quest area and wait for a tap on the map (pan/zoom still work). Returns the cancel function. */
+  pick(opts: PickOptions): PickHandle;
 }
 interface Props {
   states: MarkerState[];
   /** "from>to" keys of the trail legs that have been unlocked */
   legs: string[];
-  /** hat colour of the active player */
-  hat: string;
+  /** how the active player's explorer looks (hat colour, equipped gear, pet) */
+  look: Look;
+  /** golden spike ids this profile has already found */
+  foundSpikes?: string[];
+  onSpike?: (id: string) => void;
   onReady: () => void;
 }
 
+const NO_SPIKES: string[] = [];
+const noop = () => {};
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
 /** Wait for the next 'moveend' (or a timeout, in case no move was needed). */
@@ -101,7 +112,7 @@ function buildMarkerEl(i: number): HTMLDivElement {
   return el;
 }
 
-export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ states, legs, hat, onReady }, ref) {
+export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ states, legs, look, foundSpikes = NO_SPIKES, onSpike = noop, onReady }, ref) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const explorerRef = useRef<Explorer | null>(null);
@@ -114,8 +125,8 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
   statesRef.current = states;
   const legsRef = useRef(legs);
   legsRef.current = legs;
-  const hatRef = useRef(hat);
-  hatRef.current = hat;
+  const lookRef = useRef(look);
+  lookRef.current = look;
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
 
@@ -237,7 +248,7 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
     scaleSigns();
 
     explorerRef.current = new Explorer(map, STOPS[0].lonLat);
-    explorerRef.current.setHat(hatRef.current);
+    explorerRef.current.setLook(lookRef.current);
 
     let ready = false;
     map.on('idle', () => {
@@ -257,6 +268,7 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
     };
   }, []);
 
+  useSpikes(mapRef, legs, foundSpikes, onSpike, true);
   useEffect(applyStates, [states]);
   useEffect(() => {
     const map = mapRef.current;
@@ -264,7 +276,7 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
     const f = legFilter(legs);
     for (const id of ['trail-casing', 'trail-dash']) if (map.getLayer(id)) map.setFilter(id, f);
   }, [legs]);
-  useEffect(() => { explorerRef.current?.setHat(hat); }, [hat]);
+  useEffect(() => { explorerRef.current?.setLook(look); }, [look]);
 
   useImperativeHandle(ref, () => ({
     async walk(from, to) {
@@ -336,6 +348,11 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
       else map.jumpTo({ center: STOPS[at].lonLat, zoom: 15.6, pitch: FIT_OPTIONS.pitch, bearing: FIT_OPTIONS.bearing });
       // portrait: a bottom sheet covers the lower half, so lift the explorer into the upper half
       if (window.innerHeight > window.innerWidth) map.panBy([0, 110], { animate: false });
+    },
+    pick(opts) {
+      const map = mapRef.current;
+      if (!map) return Object.assign(() => {}, { mark: () => {} }) as PickHandle;
+      return startPick(map, opts);
     },
     async flyToUnlock(stop) {
       const map = mapRef.current, ex = explorerRef.current;

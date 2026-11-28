@@ -72,7 +72,7 @@ export function HUD({ profile, run, onMenu }: { profile: Profile; run: Run; onMe
   return (
     <header className="hud">
       <div className="hud-player">
-        <Avatar hat={profile.avatar} size={44} />
+        <Avatar hat={profile.avatar} gear={profile.gear.equipped} size={44} />
         <span className="hud-name">{profile.name}</span>
       </div>
       <div className="hud-stats">

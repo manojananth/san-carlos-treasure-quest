@@ -14,7 +14,7 @@ export function Leaderboard({ profiles, activeId, onClose }: { profiles: Profile
         {rows.map((p, i) => (
           <li key={p.id} className={p.id === activeId ? 'me' : ''} data-testid="lb-row">
             <span className="rank">{i + 1}</span>
-            <Avatar hat={p.avatar} size={40} />
+            <Avatar hat={p.avatar} gear={p.gear.equipped} size={40} />
             <span className="lb-name">
               <b>{p.name}</b>
               <small>{DIFFICULTY[p.best?.difficulty ?? p.difficulty].label}{p.best ? '' : ' · not finished yet'}</small>
