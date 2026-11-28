@@ -69,6 +69,7 @@ function hookUnlock() {
   claimPlaybackSession();
   const events = ['touchend', 'click', 'keydown'] as const;
   const go = () => {
+    if (audioReady()) return;
     claimPlaybackSession();
     try {
       // touching Howler.ctx creates the shared context on first use (via a Howl) — make sure one exists
@@ -82,10 +83,12 @@ function hookUnlock() {
         src.start(0);
       }
     } catch { /* ignore and retry on the next gesture */ }
-    if (audioReady()) events.forEach((e) => window.removeEventListener(e, go, true));
+    // listeners stay: iOS can interrupt/suspend the context later (calls, Siri, backgrounding) and the next tap re-unlocks it
   };
   events.forEach((e) => window.addEventListener(e, go, true));
 }
+// Howler suspends the context after 30 s of silence; resuming later from a timer (not a tap) is blocked on iOS
+try { Howler.autoSuspend = false; } catch { /* ignore */ }
 hookUnlock();
 
 /** Play a sound effect. Never throws; silent when muted, in tests, or before the first tap. */
