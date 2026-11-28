@@ -196,3 +196,44 @@ Never fail with 0 stars: a finished attempt earns at least 1.
 - Timed riddles persist their clock: `RiddleState.deadlineAt` (running) / `remainingMs` (paused by the menu) via the `riddleClock` action; on
   reload the timer resumes (min 5 s grace, never above full). The M2 known gap is closed.
 - Code: `src/finale/` (puzzle.ts logic, mapArt.tsx, FragmentPuzzle, TreasureChest, Confetti, ReturnCard); final summary is `components/SummaryCard.tsx`.
+
+---
+
+# Milestone 5 plan — harder, more fun (owner feedback after M4)
+
+Feedback: "levels, riddles and puzzles need to be harder; make it more fun"; audio failed on iPhone/iPad (fixed:
+gesture-retry unlock + `navigator.audioSession.type = 'playback'` for the silent switch). Owner chose: an expert
+4th level, new riddle types, hidden secrets on the map, unlockable explorer gear.
+
+## Phase 1 — foundation + Treasure Hunter level (one builder)
+- `Difficulty` gains `'hunter'` ("Treasure Hunter"): riddle tier `expert`, riddle timer 25 s, hint 30 XP, XP ×2.0,
+  timeScale 0.6. Badge `master-hunter` ("Master Treasure Hunter": finish a run on Treasure Hunter, not mixed).
+  Difficulty pickers show 4 options.
+- Every mini-game gets a real Treasure Hunter twist (not just a shorter clock):
+  depot 7 cars + cryptic clue card, no slot silhouettes; laurel 7 items incl. 2 tiny ones, lights-out best of 2 with
+  < 350 ms needed for full marks; cityhall 7 questions, 10 s each, 4 choices where available; burton 20–45 yd,
+  gusting wind that changes mid-flight, no aim guide; bigcanyon more obstacles incl. double-root gaps that need
+  well-timed jumps; highlands goalie reads 45 %, tell halved, corners narrower; hiller no updrafts and rings that
+  bob up and down; finale puzzle on Hunter: pieces start rotated (tap/R to rotate) and carry no labels.
+- Riddle engine generalised: `answerRiddle { correct: boolean; mark?: string }`, `RiddleState.wrong: string[]`
+  (choice index, tapped spot, guessed word…), `Run.seed` picks riddles from a pool so replays differ and reloads
+  are stable. Riddle content keeps working unchanged until phase 2 swaps it.
+- Profile economy: `coins`, `gear { owned: string[]; equipped: { hat?, pack?, pet? } }`, `spikes: string[]`.
+  Coins: 5 per star, 5 per first-try riddle, 15 per golden spike, 50 for the chest (× nothing; coins are flat).
+  Actions `buyItem`, `equip`, `findSpike`. Catalog ids/prices in `src/data/gear.ts` (art comes in phase 2), spike ids
+  in `src/data/spikes.ts` (positions in phase 2). Badge `spike-collector` (all 8 spikes). HUD shows coins.
+- Tests for all of it; old saves load (missing fields default).
+
+## Phase 2 — three builders in parallel
+- **Riddles** (`src/riddles/*`, `RiddleCard`, `src/data/riddles.ts`, a small `src/map/pick.ts` hook used by GameMap):
+  pool of ≥ 3 riddles per stop per tier and four kinds — *choice* (4 options, real-place distractors), *map*
+  (tap the right spot on the real map; radius shrinks with difficulty), *cipher* (decoder wheel: rotate a
+  Caesar wheel to decode a railroad-telegraph message, then answer), *scramble* (drag letter tiles to spell the
+  place). Mix per tier: Rookie choice/scramble, Pro + cipher, Legend + map, Hunter all four with harder content.
+  Hints are kind-specific (e.g. map hint draws a circle, cipher hint reveals the shift).
+- **Golden spikes** (`src/map/secrets.ts`, `src/data/spikes.ts`, a small hook in GameMap): 8 spikes at real spots
+  near unlocked trails, only visible when zoomed in (≥ 15.3) with a faint glint; tap to collect (sound, coins,
+  toast, count). Found spikes persist per profile.
+- **Explorer gear** (`src/gear/*`, explorer SVG layers, a Shop sheet from the menu and profile screen): 5 hats,
+  4 backpacks, 4 trail pets (a pet trots beside the explorer on the map), original SVG art, prices 40–250 coins.
+  Equipped gear shows on the map explorer, the HUD avatar and the profile card.
