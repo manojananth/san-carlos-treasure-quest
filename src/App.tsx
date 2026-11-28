@@ -1,3 +1,4 @@
+import { SpikeCounter } from './map/secrets';
 import { AudioSettingsSync } from './audio/AudioSettingsSync';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GameMap } from './map/GameMap';
@@ -298,6 +299,7 @@ function Game() {
       {profile && overlay === 'menu' && (
         <MenuSheet
           profile={profile}
+          spikeCounter={<SpikeCounter found={profile.spikes} />}
           onClose={() => setOverlay(null)}
           onDifficulty={(difficulty) => dispatch({ type: 'setDifficulty', difficulty })}
           onLeaderboard={() => setOverlay('leaderboard')}
