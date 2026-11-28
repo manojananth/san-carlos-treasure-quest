@@ -50,6 +50,8 @@ export interface Run {
   mixed?: boolean;
   /** the treasure chest was opened this run (treasure XP paid) */
   treasure?: boolean;
+  /** treasure XP actually paid by the chest (difficulty multiplier included) */
+  treasureXp?: number;
   /** this run set a new personal best XP */
   newBest?: boolean;
 }

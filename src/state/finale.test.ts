@@ -86,6 +86,9 @@ describe('treasure rewards', () => {
     const opened = reducer(before, { type: 'openChest', now: 9 });
     expect(treasureXp({ rookie: 1, pro: 1.25, legend: 1.5 }[d])).toBe(bonus);
     expect(R(opened).xp).toBe(R(before).xp + bonus);
+    expect(R(opened).treasureXp).toBe(bonus);
+    expect(R(reducer(opened, { type: 'showSummary' })).treasureXp).toBe(bonus);
+    expect(R(parseSave(save(opened))!).treasureXp).toBe(bonus);
     expect(reducer(opened, { type: 'openChest', now: 10 })).toBe(opened);
     expect(R(reducer(opened, { type: 'showSummary' })).xp).toBe(R(before).xp + bonus);
   });

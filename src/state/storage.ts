@@ -85,6 +85,7 @@ export function sanitizeRun(v: unknown): Run | null {
     startedAt: num(v.startedAt),
     ...(v.mixed === true ? { mixed: true } : {}),
     ...(v.treasure === true ? { treasure: true } : {}),
+    ...(typeof v.treasureXp === 'number' ? { treasureXp: nat(v.treasureXp) } : {}),
     ...(v.newBest === true ? { newBest: true } : {}),
     ...(typeof v.finishedAt === 'number' ? { finishedAt: v.finishedAt } : {}),
   };

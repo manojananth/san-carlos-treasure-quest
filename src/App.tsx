@@ -97,7 +97,9 @@ function Game() {
     const r = runRef.current;
     if (!ready || !r || !key) return;
     // in the finale the explorer is the only thing to frame (no newer stop to show)
-    mapRef.current?.restore(stopIndex(r.at), r.phase === 'finale' || r.phase === 'summary' ? stopIndex(r.at) : r.unlocked.length - 1);
+    mapRef.current?.restore(stopIndex(r.at), r.phase === 'finale' || r.phase === 'summary' ? stopIndex(r.at) : r.unlocked.length - 1,
+      // back at Base Camp after the finale walk: the whole trail, return leg included, is walked
+      r.at === 'depot' && (r.phase === 'summary' || (r.phase === 'finale' && r.finaleStep !== 'return' && r.finaleStep !== 'walking')));
     setBusy(false);
     queue.current = [];
     showing.current = false;
@@ -113,7 +115,7 @@ function Game() {
     const n = { key, unlocked: run.unlocked.length, fragments: run.fragments.length, earned: run.earned.length, xp: run.xp };
     if (s.key === key) {
       if (n.fragments > s.fragments) pushToast(`Map fragment ${n.fragments} of ${MAIN_STOPS.length} found!`, 'fragment');
-      if (n.earned > s.earned) pushToast(`New badge: ${badgeName(run.earned[run.earned.length - 1])}`, 'badge');
+      if (n.earned > s.earned) run.earned.slice(s.earned).forEach((id) => pushToast(`New badge: ${badgeName(id)}`, 'badge'));
       if (n.xp !== s.xp) setAnnounce(`${n.xp > s.xp ? '+' : '−'}${Math.abs(n.xp - s.xp)} XP. Total ${n.xp} XP.`);
       if (n.unlocked > s.unlocked) {
         const stop = STOPS[n.unlocked - 1];
@@ -260,6 +262,7 @@ function Game() {
             opened={false}
             paused={overlayOpen}
             playerName={profile.name}
+            isNewBest={!!run.newBest}
             onOpen={() => dispatch({ type: 'openChest', now: Date.now() })}
             onContinue={() => dispatch({ type: 'showSummary' })}
           />

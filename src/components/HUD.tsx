@@ -74,7 +74,7 @@ export function HUD({ profile, run, onMenu }: { profile: Profile; run: Run; onMe
         <div className="pill" role="group" aria-label="Stars"><span className="pill-ico star-ico" aria-hidden="true">★</span><b data-testid="stars">{totalStars(run)}</b></div>
         <div className="pill" role="group" aria-label="Map fragments"><FragIcon /><b data-testid="fragments">{run.fragments.length}/{MAIN_STOPS.length}</b></div>
       </div>
-      <button type="button" className="icon-btn sound-btn" aria-pressed={!muted} aria-label={muted ? 'Sound off' : 'Sound on'} data-testid="sound-toggle" onClick={() => dispatch({ type: 'setMuted', muted: !muted })}>
+      <button type="button" className="icon-btn sound-btn" aria-pressed={!muted} aria-label="Sound" title={muted ? 'Sound off' : 'Sound on'} data-testid="sound-toggle" onClick={() => dispatch({ type: 'setMuted', muted: !muted })}>
         <SpeakerIcon off={muted} />
       </button>
       <button type="button" className="icon-btn" onClick={onMenu} aria-label="Menu" aria-haspopup="dialog">

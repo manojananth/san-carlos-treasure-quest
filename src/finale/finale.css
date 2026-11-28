@@ -46,6 +46,9 @@
   .fp-side { flex: 1 1 170px; }
   .fp:not(.chest) .fp-side { flex: 0 0 150px; }
 }
+@media (min-width: 900px) {
+  .fp .fp-side { min-width: 220px; }
+}
 @media (orientation: landscape) and (max-height: 520px) {
   .fp .mg-stage { --mg-stage-max: calc(100vh - 150px); }
   .fp.chest .mg-stage { --mg-stage-max: calc(100vh - 185px); }

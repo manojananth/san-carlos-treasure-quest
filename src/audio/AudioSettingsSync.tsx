@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useGame } from '../state/GameContext';
-import { setMuted, sfx } from './sfx';
+import { preloadSfx, setMuted, sfx } from './sfx';
 import { setHaptics } from './haptics';
 
 /**
@@ -10,6 +10,7 @@ import { setHaptics } from './haptics';
 export function AudioSettingsSync() {
   const { state } = useGame();
   const { muted, haptics } = state.settings;
+  useEffect(() => { preloadSfx(); }, []);
   useEffect(() => { setMuted(muted); }, [muted]);
   useEffect(() => { setHaptics(haptics); }, [haptics]);
 

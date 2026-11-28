@@ -68,11 +68,13 @@ interface Props {
   playerName: string;
   /** called once when the lid starts to open: the state pays the treasure */
   onOpen: () => void;
+  /** this run set a new personal best: one fanfare when the chest finishes opening */
+  isNewBest?: boolean;
   /** "See my results" */
   onContinue: () => void;
 }
 
-export function TreasureChest({ xp, opened, paused, playerName, onOpen, onContinue }: Props) {
+export function TreasureChest({ xp, opened, paused, playerName, isNewBest = false, onOpen, onContinue }: Props) {
   const reduced = useReducedMotion();
   const startOpened = useRef(opened).current; // later changes are our own doing (onOpen) and must not reset the animation
   const [phase, setPhase] = useState<'closed' | 'opening' | 'open'>(startOpened ? 'open' : 'closed');
@@ -107,7 +109,11 @@ export function TreasureChest({ xp, opened, paused, playerName, onOpen, onContin
     return () => { t.kill(); };
   }, [phase, reduced, tween]);
 
+  // read through a ref: the flag only turns true after onOpen() paid the treasure, i.e. after open() created its closures
+  const newBest = useRef(isNewBest);
+  newBest.current = isNewBest;
   const finish = () => {
+    if (newBest.current) sfx('fanfare');
     setPhase('open');
     setStatus(`The chest is open! You found the treasure, ${playerName}. Plus ${xp} XP.`);
   };

@@ -77,7 +77,8 @@ function startFinale(state: GameState, run: Run, p: Profile): GameState {
 
 /** The chest is open: treasure XP, run-end badges, personal best. Phase stays `finale` (step `done`) until the summary is shown. */
 function finishRun(state: GameState, run: Run, p: Profile, now: number): GameState {
-  let r: Run = { ...run, finaleStep: 'done', finishedAt: now, treasure: true, xp: run.xp + treasureXp(DIFFICULTY[p.difficulty].xpMult) };
+  const bonus = treasureXp(DIFFICULTY[p.difficulty].xpMult);
+  let r: Run = { ...run, finaleStep: 'done', finishedAt: now, treasure: true, treasureXp: bonus, xp: run.xp + bonus };
   const noHints = MAIN_STOPS.filter((id) => id !== 'depot').every((id) => !r.riddles[id]?.hinted);
   r = award(r, 'treasure-finder', 'trailblazer', ...(noHints ? (['no-peeking'] as BadgeId[]) : []), ...(p.difficulty === 'legend' && !r.mixed ? (['legend'] as BadgeId[]) : []));
   const stars = totalStars(r);

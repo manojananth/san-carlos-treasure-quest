@@ -3,7 +3,7 @@ import gsap from 'gsap';
 import { Sheet } from '../components/Sheet';
 import { Stage, clientToStage, usePausableTimeline, usePointerDrag, useReducedMotion } from '../games/kit';
 import { sfx } from '../audio/sfx';
-import { buzz } from '../audio/haptics';
+import { buzzTap, buzzWrong, buzz } from '../audio/haptics';
 import { STOPS } from '../data/stops';
 import { CELL, MAP_H, MAP_W, PIECES, PIECE_STOPS, judgeDrop, moveSlot, nearestSlot, slotCenter, slotName, trayOrder } from './puzzle';
 import { INK, PAPER, GOLD, RED, StopIcon, TreasureMapArt } from './mapArt';
@@ -94,7 +94,7 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
       }
     }
     sfx('clank');
-    buzz(20);
+    buzzTap();
     const name = stopOf(p).theme;
     if (n === PIECES) {
       setSolved(true);
@@ -117,7 +117,7 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
     if (d.kind === 'snap') { place(p); return; }
     if (d.kind === 'wrong') {
       sfx('wrong');
-      buzz(90);
+      buzzWrong();
       setStatus(`The ${stopOf(p).theme} piece does not fit the ${slotName(d.slot)} slot. It goes back to the tray.`);
       setBadSlot(d.slot);
       tween({}, { duration: 0.7, onComplete: () => setBadSlot((b) => (b === d.slot ? null : b)) });
@@ -282,6 +282,7 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
                   <use href={`#${mapId}`} />
                 </svg>
                 <rect className="fp-edge" x={-CELL / 2} y={-CELL / 2} width={CELL} height={CELL} rx={3} fill="none" stroke={INK} strokeWidth={3} pointerEvents="none" />
+                {!isPlaced && (<>
                 <g transform="translate(0 37)" pointerEvents="none">
                   <rect x={-44} y={-9} width={88} height={18} rx={9} fill={PAPER} stroke={INK} strokeWidth={1.6} />
                   <text y={4} textAnchor="middle" fontFamily="'Lilita One', system-ui, sans-serif" fontSize={10} fill={INK}>{stop.theme}</text>
@@ -290,6 +291,7 @@ export function FragmentPuzzle({ paused, onSolved }: Props) {
                   <circle r={9} fill={RED} stroke={INK} strokeWidth={1.6} />
                   <text y={4.5} textAnchor="middle" fontFamily="'Lilita One', system-ui, sans-serif" fontSize={12} fill={PAPER}>{stop.order}</text>
                 </g>
+                </>)}
                 <rect className="fp-ring" x={-CELL / 2 - 4} y={-CELL / 2 - 4} width={CELL + 8} height={CELL + 8} rx={7} pointerEvents="none" />
                 <rect x={-CELL / 2} y={-CELL / 2} width={CELL} height={CELL} fill="transparent" />
               </g>

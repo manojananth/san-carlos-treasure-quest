@@ -41,8 +41,9 @@ export interface GameMapHandle {
   /**
    * Put the explorer at stop `at`, redraw the walked trail up to it, and frame the explorer
    * (plus the newest unlocked stop when it is a different one). No animation.
+   * With `allWalked` every leg currently shown is drawn as walked (e.g. back at Base Camp after the finale walk).
    */
-  restore(at: number, newest: number): void;
+  restore(at: number, newest: number, allWalked?: boolean): void;
   /** Fly to the freshly unlocked stop, pause, then fly back framing the explorer and the stop. */
   flyToUnlock(stop: number): Promise<void>;
 }
@@ -309,7 +310,7 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
       finish();
       return true;
     },
-    restore(at, newest) {
+    restore(at, newest, allWalked = false) {
       const map = mapRef.current, ex = explorerRef.current;
       if (!map || !ex) return;
       genRef.current++;
@@ -318,9 +319,17 @@ export const GameMap = forwardRef<GameMapHandle, Props>(function GameMap({ state
       popupRef.current?.remove();
       ex.setPosition(STOPS[at].lonLat);
       doneRef.current = [];
-      for (let i = 0; i < at; i++) {
-        const leg = legBetween(STOPS[i].id, STOPS[i + 1].id);
-        if (leg) doneRef.current.push(legFeature(leg));
+      if (allWalked) {
+        for (const key of legsRef.current) {
+          const [a, b] = key.split('>');
+          const leg = legBetween(a, b);
+          if (leg) doneRef.current.push(legFeature(leg));
+        }
+      } else {
+        for (let i = 0; i < at; i++) {
+          const leg = legBetween(STOPS[i].id, STOPS[i + 1].id);
+          if (leg) doneRef.current.push(legFeature(leg));
+        }
       }
       setDone();
       if (newest > at) frame(map, STOPS[at].lonLat, STOPS[newest].lonLat, false, 0);
